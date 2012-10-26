@@ -15,4 +15,4 @@ override_dh_auto_build:
         dh_auto_build sqlite=true unstable=true
 
 override_dh_auto_install:
-	dh_auto_install sqlite=true unstable=true
+	$(MAKE) DESTDIR=$$(pwd)/debian/aircrack-ng sqlite=true unstable=true install
