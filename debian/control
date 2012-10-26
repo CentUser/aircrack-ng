@@ -1,15 +1,20 @@
 Source: aircrack-ng
-Section: unknown
+Section: net
 Priority: extra
-Maintainer: dookie <dookie@kali.localdomain>
-Build-Depends: debhelper (>= 8.0.0)
+Maintainer: dookie <dookie@kali.org>
+Build-Depends: debhelper (>= 8.0.0), libssl-dev
 Standards-Version: 3.9.3
-Homepage: <insert the upstream URL, if relevant>
-#Vcs-Git: git://git.debian.org/collab-maint/aircrack-ng.git
-#Vcs-Browser: http://git.debian.org/?p=collab-maint/aircrack-ng.git;a=summary
+Homepage: http://aircrack-ng.org/
+Vcs-Git: ssh://git@git.kali.org/packages/aircrack-ng.git
+Vcs-Browser: http://git.kali.org/gitweb/?p=packages/aircrack-ng.git;a=summary
 
 Package: aircrack-ng
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: <insert up to 60 chars description>
- <insert long description, indented with spaces>
+Depends: ${shlibs:Depends}, ${misc:Depends}, libssl1.0.0
+Description: An 802.11 WEP and WPA-PSK key cracking program
+ Aircrack-ng is an 802.11 WEP and WPA-PSK keys cracking 
+ program that can recover keys once enough data packets 
+ have been captured. It implements the standard FMS attack 
+ along with some optimizations like KoreK attacks, as well 
+ as the all-new PTW attack, thus making the attack much 
+ faster compared to other WEP cracking tools.

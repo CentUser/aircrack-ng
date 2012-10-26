@@ -1,5 +1,5 @@
-aircrack-ng (1.1-1) unstable; urgency=low
+aircrack-ng (1.1-1) kali; urgency=low
 
-  * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+  * Initial release
 
- -- dookie <dookie@kali.localdomain>  Fri, 26 Oct 2012 11:53:21 -0600
+ -- dookie <dookie@kali.org>  Fri, 26 Oct 2012 11:53:21 -0600
