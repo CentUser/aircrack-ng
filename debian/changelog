@@ -1,3 +1,9 @@
+aircrack-ng (1.1-1kali3) kali; urgency=low
+
+  * Fixed airodump desktop file
+
+ -- Mati Aharoni <muts@kali.org>  Sat, 01 Dec 2012 12:11:39 -0500
+
 aircrack-ng (1.1-1kali2) kali; urgency=low
 
   * Updating menu items
