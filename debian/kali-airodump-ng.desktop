@@ -6,4 +6,4 @@ Icon=kali-menu.png
 StartupNotify=false
 Terminal=true
 Type=Application
-Categories=05-01-02-wlan-analysis;
+Categories=05-01-wireless-tools;
