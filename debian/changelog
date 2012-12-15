@@ -1,3 +1,9 @@
+aircrack-ng (1.1-1kali4) kali; urgency=low
+
+  * Removed desktop file
+
+ -- Mati Aharoni <muts@kali.org>  Fri, 14 Dec 2012 19:07:31 -0500
+
 aircrack-ng (1.1-1kali3) kali; urgency=low
 
   * Fixed airodump desktop file
