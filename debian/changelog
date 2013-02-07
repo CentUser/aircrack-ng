@@ -1,3 +1,9 @@
+aircrack-ng (1.2~svn2245-0kali1) kali; urgency=low
+
+  * Aircrack-ng svn import
+
+ -- Mati Aharoni <muts@kali.org>  Thu, 07 Feb 2013 09:26:58 -0500
+
 aircrack-ng (1.1-1kali4) kali; urgency=low
 
   * Removed desktop file
