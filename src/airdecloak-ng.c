@@ -376,6 +376,7 @@ BOOLEAN read_packets(void)
 			break;
 		case LINKTYPE_PPI_HDR:
 			puts("PPI");
+			break;
 		default:
 			printf("Unknown (%d)\n", _pfh_in.linktype);
 			break;
@@ -1125,6 +1126,8 @@ int CFC_filter_duplicate_iv() {
 		}
 	} while (next_packet_pointer() == true);
 
+	free(ivs_table);
+
 	return nb_packets;
 }
 
@@ -1393,13 +1396,14 @@ int main( int argc, char *argv[] )
             {"null_packet",			0, 0, 'n'},
             {"no-base-filter",		0, 0, 'a'},
             {"disable-base-filter",	0, 0, 'a'},
-            {"disable-retry",		0, 0, 'r'},
+            //{"disable-retry",		0, 0, 'r'},
             {"drop-frag",			0, 0, 'd'},
             {"input",				1, 0, 'i'},
             {0,						0, 0,  0 }
         };
 
-		option = getopt_long( argc, argv, "e:b:hf:nbrdi:",
+		//option = getopt_long( argc, argv, "e:b:hf:nbrdi:",
+		option = getopt_long( argc, argv, "e:b:hf:nbdi:",
                         long_options, &option_index );
 
 		if( option < 0 ) break;
@@ -1477,10 +1481,11 @@ int main( int argc, char *argv[] )
 			case 'd':
 				_options_drop_fragments = 1;
 				break;
-			case 'r':
-				_options_disable_retry = 1;
 			case 'n':
 				_options_assume_null_packets_uncloaked = 1;
+				break;
+			case 'r':
+				_options_disable_retry = 1;
 			case 'e':
 				printf("'%c' option not yet implemented\n", option);
 				exit(0);

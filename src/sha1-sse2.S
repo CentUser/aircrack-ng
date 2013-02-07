@@ -1,16 +1,56 @@
 
-// SHA-1 SSE2 implementation, (C) 2008 Alvaro Salmador (naplam33@msn.com), ported from Simon Marechal's SHA-1 MMX
-// SHA-1 MMX implementation, (C) 2005 Simon Marechal (simon@banquise.net)
+// SHA-1 SSE2 implementation, (C) 2008 Alvaro Salmador (naplam33@msn.com), ported from Simon Marechal's SHA-1 MMX - License: GPLv2
+// SHA-1 MMX implementation, (C) 2005 Simon Marechal (simon@banquise.net) - License: Public Domain
 
 // This code computes two (with sse now four) SHA-1 digests at the same time. It
 // doesn't take care of padding (0x80 and size << 3), so make
 // sure the last input block is properly padded. Both 64-byte
 // input blocks must be (four bytes) interleaved.
 
+//  In addition, as a special exception, the copyright holders give
+//  permission to link the code of portions of this program with the
+//  OpenSSL library under certain conditions as described in each
+//  individual source file, and distribute linked combinations
+//  including the two.
+//  You must obey the GNU General Public License in all respects
+//  for all of the code used other than OpenSSL. *  If you modify
+//  file(s) with this exception, you may extend this exception to your
+//  version of the file(s), but you are not obligated to do so. *  If you
+//  do not wish to do so, delete this exception statement from your
+//  version. *  If you delete this exception statement from all source
+//  files in the program, then also delete it here.
+
 #if defined(__x86_64__) && defined(__APPLE__)
+#define PRELOAD(x)
 #define MANGLE(x) x(%rip)
+#define INIT_PIC()
+#define END_PIC()
 #else
+#ifdef __PIC__
+
+#ifdef __x86_64__
+#define PRELOAD(x)  movq x@GOTPCREL(%rip), %rbx;
+#define MANGLE(x)   (%rbx)
+#define INIT_PIC()  pushq %rbx
+#define END_PIC()   popq  %rbx
+#else
+#undef __i686 /* gcc builtin define gets in our way */
+#define PRELOAD(x)  
+#define MANGLE(x)   x ## @GOTOFF(%ebx)
+#define INIT_PIC() \
+	call __i686.get_pc_thunk.bx ; \
+	addl $_GLOBAL_OFFSET_TABLE_, %ebx
+#define END_PIC()
+#endif
+
+#else
+
+#define PRELOAD(x)  
 #define MANGLE(x) x
+#define INIT_PIC()
+#define END_PIC()
+
+#endif
 #endif
 
 #if defined(__i386__) || defined(__x86_64__)
@@ -142,12 +182,15 @@ const_00ff:
         paddd  tmp2, e;                         \
         movdqa   b, tmp2;                         \
         pslld  $30, b;                          \
+        PRELOAD(k)				\
         paddd  MANGLE(k), e;							\
         psrld  $2, tmp2;                        \
         por    tmp2, b;                         \
         movdqa   (data*16)(edx_rsi), tmp1;            \
         movdqa   tmp1, tmp2;                      \
+        PRELOAD(const_ff00)				\
         pand   MANGLE(const_ff00), tmp1;                \
+        PRELOAD(const_00ff)				\
         pand   MANGLE(const_00ff), tmp2;                \
         psrld  $8, tmp1;                        \
         pslld  $8, tmp2;                        \
@@ -181,6 +224,7 @@ const_00ff:
         paddd  tmp2, e;                         \
         movdqa   b, tmp2;                         \
         pslld  $30, b;                          \
+        PRELOAD(k)				\
         paddd  MANGLE(k), e;                            \
         psrld  $2, tmp2;                        \
         por    tmp2, b;
@@ -192,10 +236,16 @@ const_00ff:
  shasse2_init:
 _shasse2_init:
 
+        INIT_PIC()
+        PRELOAD(const_init_a)
         movdqa   MANGLE(const_init_a), ctxa
+        PRELOAD(const_init_b)
         movdqa   MANGLE(const_init_b), ctxb
+        PRELOAD(const_init_c)
         movdqa   MANGLE(const_init_c), ctxc
+        PRELOAD(const_init_d)
         movdqa   MANGLE(const_init_d), ctxd
+        PRELOAD(const_init_e)
         movdqa   MANGLE(const_init_e), ctxe
 
         movdqa   ctxa, 0(eax_rdi)
@@ -203,6 +253,7 @@ _shasse2_init:
         movdqa   ctxc, 32(eax_rdi)
         movdqa   ctxd, 48(eax_rdi)
         movdqa   ctxe, 64(eax_rdi)
+        END_PIC()
 
         ret
 
@@ -212,17 +263,20 @@ _shasse2_init:
  shasse2_ends:
 _shasse2_ends:
 
-        movdqa    0(eax_rdi), ctxa
+        INIT_PIC()
+	movdqa    0(eax_rdi), ctxa
         movdqa   16(eax_rdi), ctxb
         movdqa   32(eax_rdi), ctxc
         movdqa   48(eax_rdi), ctxd
         movdqa   64(eax_rdi), ctxe
 
+        PRELOAD(const_ff00)
         movdqa   MANGLE(const_ff00), tmp3
         movdqa   ctxa, tmp1
         movdqa   ctxb, tmp2
         pand   tmp3, ctxa
         pand   tmp3, ctxb
+        PRELOAD(const_00ff)
         movdqa   MANGLE(const_00ff), tmp3
         pand   tmp3, tmp1
         pand   tmp3, tmp2
@@ -243,6 +297,7 @@ _shasse2_ends:
         movdqa   ctxa,  0(edx_rsi)
         movdqa   ctxb,  16(edx_rsi)
 
+        PRELOAD(const_ff00)
         movdqa   MANGLE(const_ff00), tmp5
         movdqa   ctxc, tmp1
         movdqa   ctxd, tmp2
@@ -250,6 +305,7 @@ _shasse2_ends:
         pand   tmp5, ctxc
         pand   tmp5, ctxd
         pand   tmp5, ctxe
+        PRELOAD(const_00ff)
         movdqa   MANGLE(const_00ff), tmp5
         pand   tmp5, tmp1
         pand   tmp5, tmp2
@@ -279,6 +335,7 @@ _shasse2_ends:
         movdqa   ctxc, 32(edx_rsi)
         movdqa   ctxd, 48(edx_rsi)
         movdqa   ctxe, 64(edx_rsi)
+        END_PIC()
 
         ret
 
@@ -289,6 +346,7 @@ _shasse2_ends:
  shasse2_data:
 _shasse2_data:
 
+        INIT_PIC()
         movdqa    0(eax_rdi), ctxa
         movdqa   16(eax_rdi), ctxb
         movdqa   32(eax_rdi), ctxc
@@ -400,6 +458,7 @@ round3:
         movdqa    ctxc, 32(eax_rdi)
         movdqa    ctxd, 48(eax_rdi)
         movdqa    ctxe, 64(eax_rdi)
+        END_PIC()
 
         ret
 
@@ -462,6 +521,17 @@ cpuid_exit:
 		pop		%ebx
 #endif
 		ret
+#ifdef __i386__
+#ifdef __PIC__
+	.section .gnu.linkonce.t.__i686.get_pc_thunk.bx,"ax",@progbits
+.globl __i686.get_pc_thunk.bx
+	.hidden  __i686.get_pc_thunk.bx
+	.type    __i686.get_pc_thunk.bx,@function
+__i686.get_pc_thunk.bx:
+	movl (%esp), %ebx
+	ret
+#endif
+#endif
 #endif
 
 

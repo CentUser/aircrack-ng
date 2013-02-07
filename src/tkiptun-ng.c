@@ -132,8 +132,6 @@ static uchar ZERO[32] =
 
 int bitrates[RATE_NUM]={RATE_1M, RATE_2M, RATE_5_5M, RATE_6M, RATE_9M, RATE_11M, RATE_12M, RATE_18M, RATE_24M, RATE_36M, RATE_48M, RATE_54M};
 
-extern char * getVersion(char * progname, int maj, int min, int submin, int svnrev, int beta);
-extern char * searchInside(const char * dir, const char * filename);
 extern int maccmp(unsigned char *mac1, unsigned char *mac2);
 extern unsigned char * getmac(char * macAddress, int strict, unsigned char * mac);
 extern int check_crc_buf( unsigned char *buf, int len );
@@ -1322,6 +1320,7 @@ int capture_ask_packet( int *caplen, int just_grab )
 
         if( fwrite( &pfh_out, n, 1, f_cap_out ) != 1 )
         {
+        	fclose(f_cap_out);
             perror( "fwrite failed\n" );
             return( 1 );
         }
@@ -1335,6 +1334,7 @@ int capture_ask_packet( int *caplen, int just_grab )
 
         if( fwrite( &pkh, n, 1, f_cap_out ) != 1 )
         {
+        	fclose(f_cap_out);
             perror( "fwrite failed" );
             return( 1 );
         }
@@ -1343,6 +1343,7 @@ int capture_ask_packet( int *caplen, int just_grab )
 
         if( fwrite( h80211, n, 1, f_cap_out ) != 1 )
         {
+        	fclose(f_cap_out);
             perror( "fwrite failed" );
             return( 1 );
         }
@@ -1377,6 +1378,7 @@ int read_prga(unsigned char **dest, char *file)
 
     if( fread( (*dest), size, 1, f ) != 1 )
     {
+    	fclose(f);
         fprintf( stderr, "fread failed\n" );
         return( 1 );
     }
@@ -3733,6 +3735,13 @@ int main( int argc, char *argv[] )
     int packet1_len, packet2_len;
     struct timeval mic_fail;
 
+    #ifdef USE_GCRYPT
+        // Disable secure memory.
+        gcry_control (GCRYCTL_DISABLE_SECMEM, 0);
+        // Tell Libgcrypt that initialization has completed.
+        gcry_control (GCRYCTL_INITIALIZATION_FINISHED, 0);
+    #endif
+
     /* check the arguments */
 
     memset( &opt, 0, sizeof( opt ) );
@@ -3982,7 +3991,7 @@ int main( int argc, char *argv[] )
 
             case 'H' :
 
-                printf( usage, getVersion("Tkiptun-ng", _MAJ, _MIN, _SUB_MIN, _REVISION, _BETA)  );
+                printf( usage, getVersion("Tkiptun-ng", _MAJ, _MIN, _SUB_MIN, _REVISION, _BETA, _RC)  );
                 return( 1 );
 
             case 'K' :
@@ -4060,7 +4069,7 @@ int main( int argc, char *argv[] )
     	if(argc == 1)
     	{
 usage:
-	        printf( usage, getVersion("Tkiptun-ng", _MAJ, _MIN, _SUB_MIN, _REVISION, _BETA)  );
+	        printf( usage, getVersion("Tkiptun-ng", _MAJ, _MIN, _SUB_MIN, _REVISION, _BETA, _RC)  );
         }
 	    if( argc - optind == 0)
 	    {

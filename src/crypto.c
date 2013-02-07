@@ -16,6 +16,20 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ * In addition, as a special exception, the copyright holders give
+ * permission to link the code of portions of this program with the
+ * OpenSSL library under certain conditions as described in each
+ * individual source file, and distribute linked combinations
+ * including the two.
+ * You must obey the GNU General Public License in all respects
+ * for all of the code used other than OpenSSL.  If you modify
+ * file(s) with this exception, you may extend this exception to your
+ * version of the file(s), but you are not obligated to do so.  If you
+ * do not wish to do so, delete this exception statement from your
+ * version.  If you delete this exception statement from all source
+ * files in the program, then also delete it here.
+ 
  */
 
 #include <string.h>
@@ -438,6 +452,18 @@ int is_arp(void *wh, int len)
         return 0;
 }
 
+int is_wlccp(void *wh, int len)
+{
+	int wlccpsize = 58;
+
+	if(wh) {}
+
+	if (len == wlccpsize)
+		return 1;
+
+	return 0;
+}
+
 int is_qos_arp_tkip(void *wh, int len)
 {
         unsigned char *packet = (unsigned char*) wh;
@@ -506,6 +532,29 @@ int known_clear(void *clear, int *clen, int *weight, unsigned char *wh, int len)
             /* src mac */
             len = 6;
             memcpy(ptr, get_sa(wh), len);
+            ptr += len;
+
+            len = ptr - ((unsigned char*)clear);
+            *clen = len;
+	    if (weight)
+                weight[0] = 256;
+            return 1;
+
+        }
+        else if(is_wlccp(wh, len)) /*wlccp*/
+        {
+            len = sizeof(S_LLC_SNAP_WLCCP) - 1;
+            memcpy(ptr, S_LLC_SNAP_WLCCP, len);
+            ptr += len;
+
+            /* wlccp hdr */
+            len = 4;
+            memcpy(ptr, "\x00\x32\x40\x01", len);
+            ptr += len;
+
+            /* dst mac */
+            len = 6;
+            memcpy(ptr, get_da(wh), len);
             ptr += len;
 
             len = ptr - ((unsigned char*)clear);
@@ -1150,6 +1199,10 @@ int decrypt_ccmp( uchar *h80211, int caplen, uchar TK1[16] )
     is_a4 = ( h80211[1] & 3 ) == 3;
 
     z = 24 + 6 * is_a4;
+    if ( GET_SUBTYPE(h80211[0]) == IEEE80211_FC0_SUBTYPE_QOS )
+    {
+        z += 2;
+    }
 
     PN[0] = h80211[z + 7];
     PN[1] = h80211[z + 6];
@@ -1169,7 +1222,15 @@ int decrypt_ccmp( uchar *h80211, int caplen, uchar TK1[16] )
 
     memset( AAD, 0, sizeof( AAD ) );
 
-    AAD[1] = 22 + 6 * is_a4;
+    if ( GET_SUBTYPE(h80211[0]) == IEEE80211_FC0_SUBTYPE_QOS )
+    {
+        AAD[1] = 22+2 + 6 * is_a4;
+    }
+    else
+    {
+    	AAD[1] = 22 + 6 * is_a4;
+    }
+
     AAD[2] = h80211[0] & 0x8F;
     AAD[3] = h80211[1] & 0xC7;
     memcpy( AAD + 4, h80211 + 4, 3 * 6 );
@@ -1207,6 +1268,11 @@ int decrypt_ccmp( uchar *h80211, int caplen, uchar TK1[16] )
 
         offset += n;
     }
+
+    // We need to free the ctx when using gcrypt to avoid memory leaks
+    #ifdef USE_GCRYPT
+        gcry_cipher_close(aes_ctx);
+    #endif
 
     return( memcmp( h80211 + offset, MIC, 8 ) == 0 );
 }

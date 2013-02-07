@@ -68,6 +68,10 @@
 #include "osdep/osdep.h"
 #include "osdep/common.h"
 
+#ifdef USE_GCRYPT
+    GCRY_THREAD_OPTION_PTHREAD_IMPL;
+#endif
+
 static struct wif *_wi_in, *_wi_out;
 
 #define CRYPT_NONE 0
@@ -139,13 +143,10 @@ static struct wif *_wi_in, *_wi_out;
     "\xf2\x05\x02\x00\x00\x50\xf2\x01\x00\x50\xf2\x02"
 
 extern char * getVersion(char * progname, int maj, int min, int submin, int svnrev, int beta, int rc);
-extern char * searchInside(const char * dir, const char * filename);
 extern unsigned char * getmac(char * macAddress, int strict, unsigned char * mac);
-extern int check_crc_buf( unsigned char *buf, int len );
 extern int add_crc32(unsigned char* data, int length);
 
 extern const unsigned long int crc_tbl[256];
-extern const unsigned char crc_chop_tbl[256][4];
 
 char usage[] =
 "\n"
@@ -393,7 +394,7 @@ unsigned char tmpbuf[4096];
 unsigned char srcbuf[4096];
 char strbuf[512];
 
-int ctrl_c, alarmed;
+int ctrl_c, alarmed, invalid_channel_displayed;
 
 char * iwpriv;
 
@@ -1453,6 +1454,7 @@ int read_prga(unsigned char **dest, char *file)
 
     if( fread( (*dest), size, 1, f ) != 1 )
     {
+    	fclose(f);
         fprintf( stderr, "fread failed\n" );
         return( 1 );
     }
@@ -1602,7 +1604,6 @@ int encrypt_data(unsigned char* data, int length)
 {
     uchar cipher[4096];
     uchar K[128];
-//     int n;
 
     if(data == NULL)                return 1;
     if(length < 1 || length > 2044) return 1;
@@ -1677,7 +1678,7 @@ int intercept(uchar* packet, int length)
         if (decrypt_wep( packet + z + 4, length - z - 4,
                         K, 3 + opt.weplen ) == 0 )
         {
-//             printf("ICV check failed!\n");
+			// ICV check failed!
             return 1;
         }
 
@@ -1691,8 +1692,6 @@ int intercept(uchar* packet, int length)
 
     /* clear wep bit */
     packet[1] &= 0xBF;
-
-//     printf("intercept packet with len: %d\n", length);
 
     //insert ethernet header
     memcpy(buf+14, packet, length);
@@ -1727,7 +1726,7 @@ int packet_xmit(uchar* packet, int length)
         newlen = (length-14+MAX_FRAME_EXTENSION)/fragments;
     else
         newlen = length-14;
-//     printf("Sending %i fragments with size %i/%i\n", fragments, newlen, length-14);
+
     for(i=0; i<fragments; i++)
     {
         if(i == fragments-1)
@@ -1808,7 +1807,7 @@ int packet_xmit_external(uchar* packet, int length, struct AP_conf *apc)
     memset(buf, 0, 4096);
     if(memcmp(packet, buf, 11) != 0)
     {
-//         printf("wrong header...\n");
+		// Wrong header
         return 1;
     }
 
@@ -1819,7 +1818,6 @@ int packet_xmit_external(uchar* packet, int length, struct AP_conf *apc)
 
     z = ( ( packet[1] & 3 ) != 3 ) ? 24 : 30;
 
-//     printf("packet with len: %d\n", length);
     if( opt.crypt == CRYPT_WEP || opt.prgalen > 0 )
     {
         if(create_wep_packet(packet, &length, z) != 0) return 1;
@@ -1827,12 +1825,10 @@ int packet_xmit_external(uchar* packet, int length, struct AP_conf *apc)
 
     if(memcmp(buf+12, (uchar *)"\x00\x00", 2) == 0) /* incoming packet */
     {
-//         printf("receiving packet with len: %d\n", length);
         packet_recv(packet, length, apc, 0);
     }
     else if(memcmp(buf+12, (uchar *)"\xFF\xFF", 2) == 0) /* outgoing packet */
     {
-//         printf("sending packet with len: %d\n", length);
         send_packet(packet, length);
     }
 
@@ -1898,8 +1894,6 @@ uchar* parse_tags(unsigned char *flags, unsigned char type, int length, int *tag
     {
         cur_type = pos[0];
         cur_len = pos[1];
-//         printf("tag %d with len %d found, looking for tag %d\n", cur_type, cur_len, type);
-//         printf("gone through %d bytes from %d max\n", len+2+cur_len, length);
         if(len+2+cur_len > length)
             return(NULL);
 
@@ -2139,7 +2133,6 @@ int addCF(uchar* packet, int length)
     if( (length == 68 || length == 86) && (memcmp(dmac, BROADCAST, 6) == 0 || (dmac[0]%2) == 0) )
     {
         /* process ARP */
-//         printf("Found ARP packet\n");
         isarp = 1;
         //build the new packet
         set_clear_arp(clear, smac, dmac);
@@ -2192,7 +2185,6 @@ int addCF(uchar* packet, int length)
     else
     {
         /* process IP */
-//         printf("Found IP packet\n");
         isarp = 0;
         //build the new packet
         set_clear_ip(clear, length-z-4-8-4);
@@ -2495,7 +2487,7 @@ int packet_recv(uchar* packet, int length, struct AP_conf *apc, int external)
     int seqnum, fragnum, morefrag;
     int gotsource, gotbssid;
     int remaining, bytes2use;
-    int reasso, fixed, z;
+    int reasso, fixed, z, temp_channel;
 
     struct ST_info *st_cur = NULL;
     struct ST_info *st_prv = NULL;
@@ -2509,6 +2501,9 @@ int packet_recv(uchar* packet, int length, struct AP_conf *apc, int external)
     pthread_mutex_unlock( &mx_cap );
 
     z = ( ( packet[1] & 3 ) != 3 ) ? 24 : 30;
+
+	if (packet[0] == 0x88)
+		z += 2; /* handle QoS field */
 
     if(length < z)
     {
@@ -2816,8 +2811,6 @@ int packet_recv(uchar* packet, int length, struct AP_conf *apc, int external)
 					if (length - z - 10 < st_cur->wpa.eapol_size  || st_cur->wpa.eapol_size == 0)
 					{
 						// Ignore the packet trying to crash us.
-						printf("Something is trying to crash us; length: %d - z: %d - eapol size: %d\n",
-								length, z, st_cur->wpa.eapol_size);
 						return 1;
                 	}
 
@@ -2947,7 +2940,7 @@ int packet_recv(uchar* packet, int length, struct AP_conf *apc, int external)
         if( packet[0] == 0x40 )
         {
             tag = parse_tags(packet+z, 0, length-z, &len);
-            if(tag != NULL && tag[0] >= 32 && tag[0] < 127 && len <= 255) //directed probe
+            if(tag != NULL && tag[0] >= 32 && len <= 255) //directed probe
             {
                 if( opt.promiscuous || !opt.f_essid || gotESSID((char*)tag, len) == 1)
                 {
@@ -2955,11 +2948,10 @@ int packet_recv(uchar* packet, int length, struct AP_conf *apc, int external)
                     memcpy(essid, tag, len);
 
                     /* store probes */
-                    for( i = 0; i < len; i++ )
-                        if( essid[i] > 0 && essid[i] < ' ' )
+                    if (len > 0 && essid[0] == 0)
                             goto skip_probe;
 
-                    /* got a valid ASCII probed ESSID */
+                    /* got a valid probed ESSID */
 
                     /* add this to the beacon queue */
                     if(opt.beacon_cache)
@@ -3021,7 +3013,13 @@ skip_probe:
                     //add channel
                     packet[length]   = 0x03;
                     packet[length+1] = 0x01;
-                    packet[length+2] = wi_get_channel(_wi_in);
+                    temp_channel = wi_get_channel(_wi_in); //current channel
+                    if ((temp_channel > 255 || temp_channel < 1) && !invalid_channel_displayed) {
+                    	// Display error message once
+                    	invalid_channel_displayed = 1;
+                    	fprintf(stderr, "Error: Got channel %d, expected a value < 256. Please report.\n", temp_channel);
+                    }
+                    packet[length+2] = ((temp_channel > 255 || temp_channel < 1) && opt.channel != 0) ? opt.channel : temp_channel;
 
                     length += 3;
 
@@ -3113,7 +3111,13 @@ skip_probe:
                     //add channel
                     packet[length]   = 0x03;
                     packet[length+1] = 0x01;
-                    packet[length+2] = wi_get_channel(_wi_in);
+                    temp_channel = wi_get_channel(_wi_in); //current channel
+                    if ((temp_channel > 255 || temp_channel < 1) && !invalid_channel_displayed) {
+                    	// Display error message once
+                    	invalid_channel_displayed = 1;
+                    	fprintf(stderr, "Error: Got channel %d, expected a value < 256. Please report.\n", temp_channel);
+                    }
+                    packet[length+2] = ((temp_channel > 255 || temp_channel < 1) && opt.channel != 0) ? opt.channel : temp_channel;
 
                     length += 3;
 
@@ -3259,7 +3263,7 @@ skip_probe:
             st_cur->wep = (packet[z] & 0x10) >> 4;
 
             tag = parse_tags(packet+z+fixed, 0, length-z-fixed, &len);
-            if(tag != NULL && tag[0] >= 32 && tag[0] < 127 && len < 256)
+            if(tag != NULL && tag[0] >= 32 && len < 256)
             {
                 memcpy(essid, tag, len);
                 essid[len] = 0x00;
@@ -3455,7 +3459,7 @@ void beacon_thread( void *arg )
     unsigned char beacon[512];
     int beacon_len=0;
     int seq=0, i=0, n=0;
-    int essid_len;
+    int essid_len, temp_channel;
     char *essid = "";
     pESSID_t cur_essid = rESSID;
     float f, ticks[3];
@@ -3469,7 +3473,6 @@ void beacon_thread( void *arg )
     while( 1 )
     {
         /* sleep until the next clock tick */
-//         printf( "1 " );
         if( dev.fd_rtc >= 0 )
         {
             if( read( dev.fd_rtc, &n, sizeof( n ) ) < 0 )
@@ -3495,23 +3498,21 @@ void beacon_thread( void *arg )
             ticks[1] += f / ( 1000000/RTC_RESOLUTION );
             ticks[2] += f / ( 1000000/RTC_RESOLUTION );
         }
-//         printf( "2 " );
 
         if( ( (double)ticks[2] / (double)RTC_RESOLUTION )  >= ((double)apc.interval/1000.0)*(double)seq )
         {
             /* threshold reach, send one frame */
 //             ticks[2] = 0;
-//             printf( "3 " );
             fflush(stdout);
             gettimeofday( &tv1,  NULL );
             timestamp=tv1.tv_sec*1000000 + tv1.tv_usec;
-//             printf( "ticks: %f ; timestamp: %u\n", ticks[2], (unsigned int)timestamp );
-
-//             printf( "4 " );
             fflush(stdout);
 
 
-            if(cur_essid == NULL) cur_essid = rESSID;
+            if(cur_essid == NULL) {
+            	cur_essid = rESSID;
+            	cur_essid = cur_essid->next;
+            }
             if(cur_essid == NULL) {
 	            essid = "default";
 	            essid_len = strlen(essid);
@@ -3559,7 +3560,14 @@ void beacon_thread( void *arg )
 
             beacon[beacon_len] = 0x03; //channel tag
             beacon[beacon_len+1] = 0x01;
-            beacon[beacon_len+2] = wi_get_channel(_wi_in); //current channel
+            temp_channel = wi_get_channel(_wi_in); //current channel
+            if ((temp_channel > 255 || temp_channel < 1) && !invalid_channel_displayed) {
+            	// Display error message once
+            	invalid_channel_displayed = 1;
+            	fprintf(stderr, "Error: Got channel %d, expected a value < 256. Please report.\n", temp_channel);
+            }
+            beacon[beacon_len+2] = ((temp_channel > 255 || temp_channel < 1) && opt.channel != 0) ? opt.channel : temp_channel;
+
             beacon_len+=3;
 
             if( opt.allwpa )
@@ -3594,7 +3602,6 @@ void beacon_thread( void *arg )
             beacon[22] = (seq << 4) & 0xFF;
             beacon[23] = (seq >> 4) & 0xFF;
 
-//             printf( "5 " );
             fflush(stdout);
 
             if( send_packet( beacon, beacon_len ) < 0 )
@@ -3604,9 +3611,6 @@ void beacon_thread( void *arg )
             }
 
             seq++;
-
-//             printf( "6\n" );
-
         }
     }
 }
@@ -3614,8 +3618,6 @@ void beacon_thread( void *arg )
 void caffelatte_thread( void )
 {
     struct timeval tv, tv2;
-//     int beacon_len=0;
-//     int seq=0, i=0, n=0;
     float f, ticks[3];
     int arp_off1=0;
     int nb_pkt_sent_1=0;
@@ -3656,7 +3658,6 @@ void caffelatte_thread( void )
                     return;
 
                 nb_pkt_sent_1++;
-//                 printf("sent arp: %d\n", nb_pkt_sent_1);
 
                 if( ((double)ticks[0]/(double)RTC_RESOLUTION)*(double)opt.r_nbpps > (double)nb_pkt_sent_1  )
                 {
@@ -3753,8 +3754,6 @@ int cfrag_fuzz(unsigned char *packet, int frags, int frag_num, int length, unsig
 void cfrag_thread( void )
 {
     struct timeval tv, tv2;
-//     int beacon_len=0;
-//     int seq=0, i=0, n=0;
     float f, ticks[3];
     int nb_pkt_sent_1=0;
     int seq=0, i=0;
@@ -3799,8 +3798,6 @@ void cfrag_thread( void )
                     continue;
                 }
 
-//                 curCF = curCF->next;
-
                 while( curCF->next != NULL && curCF->next->xmitcount >= MAX_CF_XMIT )
                 {
                     del_next_CF(curCF);
@@ -3841,7 +3838,6 @@ void cfrag_thread( void )
 
                 curCF->xmitcount++;
                 nb_pkt_sent_1++;
-//                 printf("sent arp: %d\n", nb_pkt_sent_1);
 
                 if( ((double)ticks[0]/(double)RTC_RESOLUTION)*(double)opt.r_nbpps > (double)nb_pkt_sent_1  )
                 {
@@ -3906,6 +3902,14 @@ int main( int argc, char *argv[] )
     rCF = (pCF_t) malloc(sizeof(struct CF_packet));
     memset(rCF, 0, sizeof(struct CF_packet));
 
+#ifdef USE_GCRYPT
+    // Register callback functions to ensure proper locking in the sensitive parts of libgcrypt.
+    gcry_control (GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);
+    // Disable secure memory.
+    gcry_control (GCRYCTL_DISABLE_SECMEM, 0);
+    // Tell Libgcrypt that initialization has completed.
+    gcry_control (GCRYCTL_INITIALIZATION_FINISHED, 0);
+#endif
     pthread_mutex_init( &mx_cf, NULL );
     pthread_mutex_init( &mx_cap, NULL );
 
@@ -3918,9 +3922,11 @@ int main( int argc, char *argv[] )
     opt.nb_arp      = 0;
     opt.f_index     = 1;
     opt.interval    = 0x64;
+    opt.channel		= 0;
     opt.beacon_cache = 0; /* disable by default */
     opt.ti_mtu = TI_MTU;
     opt.wif_mtu = WIF_MTU;
+    invalid_channel_displayed = 0;
 
     srand( time( NULL ) );
 
@@ -3984,6 +3990,11 @@ int main( int argc, char *argv[] )
             case 'c' :
 
                 opt.channel = atoi(optarg);
+                if (opt.channel > 255 || opt.channel < 1)
+                {
+                	printf("Invalid channel value <%d>. It must be between 1 and 255.\n", opt.channel);
+                	return( 1 );
+                }
 
                 break;
 

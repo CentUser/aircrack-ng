@@ -1,6 +1,6 @@
 === Requirements ===
 
- * OpenSSL development package
+ * OpenSSL development package or libgcrypt development package
  * If you want to use airolib-ng and '-r' option in aircrack-ng,
    SQLite development package >= 3.3.17 (3.6.X version or better is recommended):
    -  libsqlite3-devel
@@ -38,13 +38,29 @@ to compile and install the suite:
 * unstable: needed to compile tkiptun-ng, easside-ng (and buddy-ng) and
             wesside-ng
 
+* ext_scripts: needed to build airoscript-ng, versuck-ng, airgraph-ng and 
+            airdrop-ng. 
+            Note: Experimental. Each script has its own dependences.
+            Note: It's only required in install phase.
+
+* gcrypt:   Use libgcrypt crypto library instead of the default OpenSSL.
+            And also use internal fast sha1 implementation (borrowed from GIT)
+
+* libnl:    Add support for netlink (nl80211).
+
 Example:
 
   * Compiling:
     make sqlite=true unstable=true
 
+  * Compiling with gcrypt
+    make gcrypt=true
+
   * Installing:
     make sqlite=true unstable=true install
+
+  * Installing, with external scripts:
+    make sqlite=true unstable=true ext_scripts=true
 
 === Using precompiled binaries ===
 
