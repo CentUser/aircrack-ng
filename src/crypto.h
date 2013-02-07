@@ -1,3 +1,37 @@
+/*
+ *  MD5, SHA-1, RC4 and AES implementations
+ *
+ *  Copyright (C) 2001-2004  Christophe Devine
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ * In addition, as a special exception, the copyright holders give
+ * permission to link the code of portions of this program with the
+ * OpenSSL library under certain conditions as described in each
+ * individual source file, and distribute linked combinations
+ * including the two.
+ * You must obey the GNU General Public License in all respects
+ * for all of the code used other than OpenSSL.  If you modify
+ * file(s) with this exception, you may extend this exception to your
+ * version of the file(s), but you are not obligated to do so.  If you
+ * do not wish to do so, delete this exception statement from your
+ * version.  If you delete this exception statement from all source
+ * files in the program, then also delete it here.
+ 
+ */
+
 #ifndef _CRYPTO_H
 #define _CRYPTO_H
 
@@ -9,14 +43,20 @@
 #define uint32 unsigned long int
 #endif
 
+#ifdef USE_GCRYPT
+#include "gcrypt-openssl-wrapper.h"
+#include "sha1-git.h"
+#else
 #include <openssl/hmac.h>
 #include <openssl/sha.h>
 // We don't use EVP. Bite me
 #include <openssl/rc4.h>
 #include <openssl/aes.h>
+#endif
 
 #define S_LLC_SNAP      "\xAA\xAA\x03\x00\x00\x00"
 #define S_LLC_SNAP_ARP  (S_LLC_SNAP "\x08\x06")
+#define S_LLC_SNAP_WLCCP      "\xAA\xAA\x03\x00\x40\x96\x00\x00"
 #define S_LLC_SNAP_IP   (S_LLC_SNAP "\x08\x00")
 #define S_LLC_SNAP_SPANTREE   "\x42\x42\x03\x00\x00\x00\x00\x00"
 #define S_LLC_SNAP_CDP  "\xAA\xAA\x03\x00\x00\x0C\x20"

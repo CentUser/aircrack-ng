@@ -74,9 +74,7 @@ static struct wif *_wi_in, *_wi_out;
 #define FRAG_TIMEOUT (1000000*60)
 
 extern char * getVersion(char * progname, int maj, int min, int submin, int svnrev, int beta, int rc);
-extern char * searchInside(const char * dir, const char * filename);
 extern unsigned char * getmac(char * macAddress, int strict, unsigned char * mac);
-extern int check_crc_buf( unsigned char *buf, int len );
 extern int add_crc32(unsigned char* data, int length);
 
 extern const unsigned long int crc_tbl[256];
@@ -673,6 +671,7 @@ int read_prga(unsigned char **dest, char *file)
 
     if( fread( (*dest), size, 1, f ) != 1 )
     {
+    	fclose(f);
         fprintf( stderr, "fread failed\n" );
         return( 1 );
     }
@@ -1130,6 +1129,13 @@ int main( int argc, char *argv[] )
     unsigned char bssid[6];
     char *s, buf[128];
     int caplen;
+
+    #ifdef USE_GCRYPT
+        // Disable secure memory.
+        gcry_control (GCRYCTL_DISABLE_SECMEM, 0);
+        // Tell Libgcrypt that initialization has completed.
+        gcry_control (GCRYCTL_INITIALIZATION_FINISHED, 0);
+    #endif
 
     /* check the arguments */
 

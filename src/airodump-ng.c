@@ -69,6 +69,10 @@
 #include "osdep/common.h"
 #include "common.h"
 
+#ifdef USE_GCRYPT
+	GCRY_THREAD_OPTION_PTHREAD_IMPL;
+#endif
+
 void dump_sort( void );
 void dump_print( int ws_row, int ws_col, int if_num );
 
@@ -383,8 +387,11 @@ struct oui * load_oui_file(void) {
 	unsigned char c[2];
 	struct oui *oui_ptr = NULL, *oui_head = NULL;
 
-	if (!(fp = fopen(OUI_PATH, "r")))
-		return NULL;
+	if (!(fp = fopen(OUI_PATH0, "r"))) {
+		if (!(fp = fopen(OUI_PATH1, "r"))) {
+			return NULL;
+		}
+	}
 
 	memset(buffer, 0x00, sizeof(buffer));
 	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
@@ -397,13 +404,15 @@ struct oui * load_oui_file(void) {
 		if (sscanf(buffer, "%2c-%2c-%2c", a, b, c) == 3) {
 			if (oui_ptr == NULL) {
 				if (!(oui_ptr = (struct oui *)malloc(sizeof(struct oui)))) {
+					fclose(fp);
 					perror("malloc failed");
 					return NULL;
 				}
 			} else {
 				if (!(oui_ptr->next = (struct oui *)malloc(sizeof(struct oui)))) {
+					fclose(fp);
 					perror("malloc failed");
-									return NULL;
+					return NULL;
 				}
 				oui_ptr = oui_ptr->next;
 			}
@@ -589,42 +598,44 @@ char usage[] =
 "  usage: airodump-ng <options> <interface>[,<interface>,...]\n"
 "\n"
 "  Options:\n"
-"      --ivs               : Save only captured IVs\n"
-"      --gpsd              : Use GPSd\n"
-"      --write    <prefix> : Dump file prefix\n"
-"      -w                  : same as --write \n"
-"      --beacons           : Record all beacons in dump file\n"
-"      --update     <secs> : Display update delay in seconds\n"
-"      --showack           : Prints ack/cts/rts statistics\n"
-"      -h                  : Hides known stations for --showack\n"
-"      -f          <msecs> : Time in ms between hopping channels\n"
-"      --berlin     <secs> : Time before removing the AP/client\n"
-"                            from the screen when no more packets\n"
-"                            are received (Default: 120 seconds)\n"
-"      -r           <file> : Read packets from that file\n"
-"      -x          <msecs> : Active Scanning Simulation\n"
+"      --ivs                 : Save only captured IVs\n"
+"      --gpsd                : Use GPSd\n"
+"      --write      <prefix> : Dump file prefix\n"
+"      -w                    : same as --write \n"
+"      --beacons             : Record all beacons in dump file\n"
+"      --update       <secs> : Display update delay in seconds\n"
+"      --showack             : Prints ack/cts/rts statistics\n"
+"      -h                    : Hides known stations for --showack\n"
+"      -f            <msecs> : Time in ms between hopping channels\n"
+"      --berlin       <secs> : Time before removing the AP/client\n"
+"                              from the screen when no more packets\n"
+"                              are received (Default: 120 seconds)\n"
+"      -r             <file> : Read packets from that file\n"
+"      -x            <msecs> : Active Scanning Simulation\n"
 "      --output-format\n"
-"                <formats> : Output format. Possible values:\n"
-"                            pcap, ivs, csv, gps, kismet, netxml\n"
+"                  <formats> : Output format. Possible values:\n"
+"                              pcap, ivs, csv, gps, kismet, netxml\n"
+"      --ignore-negative-one : Removes the message that says\n"
+"                              fixed channel <interface>: -1\n"
 "\n"
 "  Filter options:\n"
-"      --encrypt   <suite> : Filter APs by cipher suite\n"
-"      --netmask <netmask> : Filter APs by mask\n"
-"      --bssid     <bssid> : Filter APs by BSSID\n"
-"      -a                  : Filter unassociated clients\n"
+"      --encrypt   <suite>   : Filter APs by cipher suite\n"
+"      --netmask <netmask>   : Filter APs by mask\n"
+"      --bssid     <bssid>   : Filter APs by BSSID\n"
+"      -a                    : Filter unassociated clients\n"
 "\n"
 "  By default, airodump-ng hop on 2.4GHz channels.\n"
 "  You can make it capture on other/specific channel(s) by using:\n"
-"      --channel <channels>: Capture on specific channels\n"
-"      --band <abg>        : Band on which airodump-ng should hop\n"
-"      -C    <frequencies> : Uses these frequencies in MHz to hop\n"
-"      --cswitch  <method> : Set channel switching method\n"
-"                    0     : FIFO (default)\n"
-"                    1     : Round Robin\n"
-"                    2     : Hop on last\n"
-"      -s                  : same as --cswitch\n"
+"      --channel <channels>  : Capture on specific channels\n"
+"      --band <abg>          : Band on which airodump-ng should hop\n"
+"      -C    <frequencies>   : Uses these frequencies in MHz to hop\n"
+"      --cswitch  <method>   : Set channel switching method\n"
+"                    0       : FIFO (default)\n"
+"                    1       : Round Robin\n"
+"                    2       : Hop on last\n"
+"      -s                    : same as --cswitch\n"
 "\n"
-"      --help              : Displays this usage screen\n"
+"      --help                : Displays this usage screen\n"
 "\n";
 
 int is_filtered_netmask(uchar *bssid)
@@ -1000,6 +1011,12 @@ int list_add_packet(struct pkt_buf **list, int length, unsigned char* packet)
     return 0;
 }
 
+/*
+ * Check if the same IV was used if the first two bytes were the same.
+ * If they are not identical, it would complain.
+ * The reason is that the first two bytes unencrypted are 'aa'
+ * so with the same IV it should always be encrypted to the same thing.
+ */
 int list_check_decloak(struct pkt_buf **list, int length, unsigned char* packet)
 {
     struct pkt_buf *next = *list;
@@ -2126,7 +2143,7 @@ skip_probe:
                     st_cur->wpa.eapol_size = ( h80211[z + 2] << 8 )
                             +   h80211[z + 3] + 4;
 
-                    if ((int)pkh.len - z < st_cur->wpa.eapol_size  || st_cur->wpa.eapol_size == 0)
+                    if (caplen - z < st_cur->wpa.eapol_size  || st_cur->wpa.eapol_size == 0 || caplen - z < 81 + 16 || st_cur->wpa.eapol_size > 256)
 					{
 						// Ignore the packet trying to crash us.
                     	goto write_packet;
@@ -2158,7 +2175,7 @@ skip_probe:
                     st_cur->wpa.eapol_size = ( h80211[z + 2] << 8 )
                             +   h80211[z + 3] + 4;
 
-                    if ((int)pkh.len - z < st_cur->wpa.eapol_size  || st_cur->wpa.eapol_size == 0)
+                    if (caplen - z < st_cur->wpa.eapol_size  || st_cur->wpa.eapol_size == 0 || caplen - z < 81 + 16 || st_cur->wpa.eapol_size > 256)
 					{
 						// Ignore the packet trying to crash us.
                     	goto write_packet;
@@ -3150,7 +3167,7 @@ void dump_print( int ws_row, int ws_col, int if_num )
 
     if(G.show_sta) {
 	memcpy( strbuf, " BSSID              STATION "
-		"           PWR   Rate    Lost  Packets  Probes", columns_sta );
+		"           PWR   Rate    Lost    Frames  Probes", columns_sta );
 	strbuf[ws_col - 1] = '\0';
 	fprintf( stderr, "%s\n", strbuf );
 
@@ -3551,13 +3568,13 @@ char * sanitize_xml(unsigned char * text, int length)
 {
 	int i;
 	size_t len;
-	char * pos;
+	unsigned char * pos;
 	char * newpos;
 	char * newtext = NULL;
 	if (text != NULL && length > 0) {
 		len = 5 * length;
 		newtext = (char *)calloc(1, (len + 1) * sizeof(char)); // Make sure we have enough space
-		pos = (char *)text;
+		pos = text;
 		for (i = 0; i < length; ++i, ++pos) {
 			switch (*pos) {
 				case '&':
@@ -3570,7 +3587,7 @@ char * sanitize_xml(unsigned char * text, int length)
 					strncat(newtext, "&gt;", len);
 					break;
 				default:
-					if (isprint((int)(*pos))) {
+					if ( isprint((int)(*pos)) || (*pos)>127 ) {
 						newtext[strlen(newtext)] = *pos;
 					} else {
 						newtext[strlen(newtext)] = '\\';
@@ -3590,6 +3607,7 @@ char * sanitize_xml(unsigned char * text, int length)
 #define OUI_STR_SIZE 8
 #define MANUF_SIZE 128
 char *get_manufacturer(unsigned char mac0, unsigned char mac1, unsigned char mac2) {
+	static char * oui_location = NULL;
 	char oui[OUI_STR_SIZE + 1];
 	char *manuf;
 	//char *buffer_manuf;
@@ -3623,7 +3641,25 @@ char *get_manufacturer(unsigned char mac0, unsigned char mac1, unsigned char mac
 		}
 	} else {
 		// If the file exist, then query it each time we need to get a manufacturer.
-		fp = fopen(OUI_PATH, "r");
+		if (oui_location == NULL) {
+			fp = fopen(OUI_PATH0, "r");
+			if (fp == NULL) {
+				fp = fopen(OUI_PATH1, "r");
+				if (fp == NULL) {
+				    fp = fopen(OUI_PATH2, "r");
+				    if (fp != NULL) {
+					oui_location = OUI_PATH2;
+				    }
+				} else {
+				    oui_location = OUI_PATH1;
+				}
+			} else {
+				oui_location = OUI_PATH0;
+			}
+		} else {
+			fp = fopen(oui_location, "r");
+		}
+
 		if (fp != NULL) {
 
 			memset(buffer, 0x00, sizeof(buffer));
@@ -3683,6 +3719,7 @@ int dump_write_kismet_netxml( void )
     struct ST_info *st_cur;
     char first_time[TIME_STR_LENGTH];
     char last_time[TIME_STR_LENGTH];
+    char * manuf;
     char * essid = NULL;
 
     if (! G.record_data || !G.output_format_kismet_netxml)
@@ -3750,12 +3787,12 @@ int dump_write_kismet_netxml( void )
 
 		if( (ap_cur->security & (ENC_WEP|ENC_TKIP|ENC_WRAP|ENC_CCMP|ENC_WEP104|ENC_WEP40)) != 0 )
 		{
-			if( ap_cur->security & ENC_CCMP   ) fprintf( G.f_kis_xml, "AES-CCM");
-			if( ap_cur->security & ENC_WRAP   ) fprintf( G.f_kis_xml, "WRAP");
-			if( ap_cur->security & ENC_TKIP   ) fprintf( G.f_kis_xml, "TKIP");
-			if( ap_cur->security & ENC_WEP104 ) fprintf( G.f_kis_xml, "WEP104");
-			if( ap_cur->security & ENC_WEP40  ) fprintf( G.f_kis_xml, "WEP40");
-/*      	if( ap_cur->security & ENC_WEP    ) fprintf( G.f_kis, " WEP");*/
+			if( ap_cur->security & ENC_CCMP   ) fprintf( G.f_kis_xml, "AES-CCM ");
+			if( ap_cur->security & ENC_WRAP   ) fprintf( G.f_kis_xml, "WRAP ");
+			if( ap_cur->security & ENC_TKIP   ) fprintf( G.f_kis_xml, "TKIP ");
+			if( ap_cur->security & ENC_WEP104 ) fprintf( G.f_kis_xml, "WEP104 ");
+			if( ap_cur->security & ENC_WEP40  ) fprintf( G.f_kis_xml, "WEP40 ");
+/*      	if( ap_cur->security & ENC_WEP    ) fprintf( G.f_kis_xml, "WEP ");*/
 		}
 		fprintf(G.f_kis_xml, "</encryption>\n");
 
@@ -3779,7 +3816,9 @@ int dump_write_kismet_netxml( void )
 					 ap_cur->bssid[4], ap_cur->bssid[5] );
 
 		/* Manufacturer, if set using standard oui list */
-		fprintf(G.f_kis_xml, "\t\t<manuf>%s</manuf>\n", (ap_cur->manuf != NULL) ? ap_cur->manuf : "Unknown");
+		manuf = sanitize_xml((unsigned char *)ap_cur->manuf, strlen(ap_cur->manuf));
+		fprintf(G.f_kis_xml, "\t\t<manuf>%s</manuf>\n", (manuf != NULL) ? manuf : "Unknown");
+		free(manuf);
 
 		/* Channel
 		   FIXME: Take G.freqoption in account */
@@ -4213,12 +4252,15 @@ void gps_tracker( void )
 {
 	ssize_t unused;
     int gpsd_sock;
-    char line[256], *p;
+    char line[256], *temp;
     struct sockaddr_in gpsd_addr;
-    int ret;
+    int ret, is_json, pos;
+    fd_set read_fd;
+    struct timeval timeout;
 
     /* attempt to connect to localhost, port 2947 */
 
+    pos = 0;
     gpsd_sock = socket( AF_INET, SOCK_STREAM, 0 );
 
     if( gpsd_sock < 0 ) {
@@ -4234,59 +4276,172 @@ void gps_tracker( void )
         return;
     }
 
+    // Check if it's GPSd < 2.92 or the new one
+    // 2.92+ immediately send stuff
+    // < 2.92 requires to send PVTAD command
+    FD_ZERO(&read_fd);
+    FD_SET(gpsd_sock, &read_fd);
+    timeout.tv_sec = 1;
+    timeout.tv_usec = 0;
+    is_json = select(gpsd_sock + 1, &read_fd, NULL, NULL, &timeout);
+    if (is_json) {
+    	/*
+			{"class":"VERSION","release":"2.95","rev":"2010-11-16T21:12:35","proto_major":3,"proto_minor":3}
+			?WATCH={"json":true};
+			{"class":"DEVICES","devices":[]}
+    	 */
+
+
+    	// Get the crap and ignore it: {"class":"VERSION","release":"2.95","rev":"2010-11-16T21:12:35","proto_major":3,"proto_minor":3}
+    	if( recv( gpsd_sock, line, sizeof( line ) - 1, 0 ) <= 0 )
+    		return;
+
+    	is_json = (line[0] == '{');
+    	if (is_json) {
+			// Send ?WATCH={"json":true};
+			memset( line, 0, sizeof( line ) );
+			strcpy(line, "?WATCH={\"json\":true};\n");
+			if( send( gpsd_sock, line, 22, 0 ) != 22 )
+				return;
+
+			// Check that we have devices
+			memset(line, 0, sizeof(line));
+			if( recv( gpsd_sock, line, sizeof( line ) - 1, 0 ) <= 0 )
+				return;
+
+			// Stop processing if there is no device
+			if (strncmp(line, "{\"class\":\"DEVICES\",\"devices\":[]}", 32) == 0) {
+				close(gpsd_sock);
+				return;
+			} else {
+				pos = strlen(line);
+			}
+    	}
+    }
+
     /* loop reading the GPS coordinates */
 
     while( G.do_exit == 0 )
     {
-        sleep( 1 );
-
+        usleep( 500000 );
         memset( G.gps_loc, 0, sizeof( float ) * 5 );
 
         /* read position, speed, heading, altitude */
+        if (is_json) {
+        	// Format definition: http://catb.org/gpsd/gpsd_json.html
 
-        memset( line, 0, sizeof( line ) );
-        snprintf( line,  sizeof( line ) - 1, "PVTAD\r\n" );
-        if( send( gpsd_sock, line, 7, 0 ) != 7 )
-            return;
+        	if (pos == sizeof( line )) {
+        		memset(line, 0, sizeof(line));
+        		pos = 0;
+        	}
 
-		if (G.do_exit)
-			return;
+        	// New version, JSON
+        	if( recv( gpsd_sock, line + pos, sizeof( line ) - 1, 0 ) <= 0 )
+        		return;
 
-        memset( line, 0, sizeof( line ) );
-        if( recv( gpsd_sock, line, sizeof( line ) - 1, 0 ) <= 0 )
-            return;
+        	// search for TPV class: {"class":"TPV"
+        	temp = strstr(line, "{\"class\":\"TPV\"");
+        	if (temp == NULL) {
+        		continue;
+        	}
 
-		if (G.do_exit)
-			return;
+        	// Make sure the data we have is complete
+        	if (strchr(temp, '}') == NULL) {
+        		// Move the data at the beginning of the buffer;
+        		pos = strlen(temp);
+        		if (temp != line) {
+        			memmove(line, temp, pos);
+        			memset(line + pos, 0, sizeof(line) - pos);
+        		}
+        	}
 
-        if( memcmp( line, "GPSD,P=", 7 ) != 0 )
-            continue;
+			// Example line: {"class":"TPV","tag":"MID2","device":"/dev/ttyUSB0","time":1350957517.000,"ept":0.005,"lat":46.878936576,"lon":-115.832602964,"alt":1968.382,"track":0.0000,"speed":0.000,"climb":0.000,"mode":3}
 
-        /* make sure the coordinates are present */
+        	// Latitude
+        	temp = strstr(temp, "\"lat\":");
+			if (temp == NULL) {
+				continue;
+			}
 
-        if( line[7] == '?' )
-            continue;
+			ret = sscanf(temp + 6, "%f", &G.gps_loc[0]);
 
-        ret = sscanf( line + 7, "%f %f", &G.gps_loc[0], &G.gps_loc[1] );
+			// Longitude
+			temp = strstr(temp, "\"lon\":");
+			if (temp == NULL) {
+				continue;
+			}
 
-        if( ( p = strstr( line, "V=" ) ) == NULL ) continue;
-        ret = sscanf( p + 2, "%f", &G.gps_loc[2] ); /* speed */
+			ret = sscanf(temp + 6, "%f", &G.gps_loc[1]);
 
-        if( ( p = strstr( line, "T=" ) ) == NULL ) continue;
-        ret = sscanf( p + 2, "%f", &G.gps_loc[3] ); /* heading */
+			// Altitude
+			temp = strstr(temp, "\"alt\":");
+			if (temp == NULL) {
+				continue;
+			}
 
-        if( ( p = strstr( line, "A=" ) ) == NULL ) continue;
-        ret = sscanf( p + 2, "%f", &G.gps_loc[4] ); /* altitude */
+			ret = sscanf(temp + 6, "%f", &G.gps_loc[4]);
+
+			// Speed
+			temp = strstr(temp, "\"speed\":");
+			if (temp == NULL) {
+				continue;
+			}
+
+			ret = sscanf(temp + 6, "%f", &G.gps_loc[2]);
+
+			// No more heading
+
+			// Get the next TPV class
+			temp = strstr(temp, "{\"class\":\"TPV\"");
+			if (temp == NULL) {
+				memset( line, 0, sizeof( line ) );
+				pos = 0;
+			} else {
+				pos = strlen(temp);
+				memmove(line, temp, pos);
+				memset(line + pos, 0, sizeof(line) - pos);
+			}
+
+        } else {
+        	memset( line, 0, sizeof( line ) );
+
+			snprintf( line,  sizeof( line ) - 1, "PVTAD\r\n" );
+			if( send( gpsd_sock, line, 7, 0 ) != 7 )
+				return;
+
+			memset( line, 0, sizeof( line ) );
+			if( recv( gpsd_sock, line, sizeof( line ) - 1, 0 ) <= 0 )
+				return;
+
+			if( memcmp( line, "GPSD,P=", 7 ) != 0 )
+				continue;
+
+			/* make sure the coordinates are present */
+
+			if( line[7] == '?' )
+				continue;
+
+			ret = sscanf( line + 7, "%f %f", &G.gps_loc[0], &G.gps_loc[1] );
+
+			if( ( temp = strstr( line, "V=" ) ) == NULL ) continue;
+			ret = sscanf( temp + 2, "%f", &G.gps_loc[2] ); /* speed */
+
+			if( ( temp = strstr( line, "T=" ) ) == NULL ) continue;
+			ret = sscanf( temp + 2, "%f", &G.gps_loc[3] ); /* heading */
+
+			if( ( temp = strstr( line, "A=" ) ) == NULL ) continue;
+			ret = sscanf( temp + 2, "%f", &G.gps_loc[4] ); /* altitude */
+        }
 
         if (G.record_data)
-        	fputs( line, G.f_gps );
+			fputs( line, G.f_gps );
 
-        G.save_gps = 1;
+		G.save_gps = 1;
 
-		if (G.do_exit == 0)
+        if (G.do_exit == 0)
 		{
-        	unused = write( G.gc_pipe[1], G.gps_loc, sizeof( float ) * 5 );
-        	kill( getppid(), SIGUSR2 );
+			unused = write( G.gc_pipe[1], G.gps_loc, sizeof( float ) * 5 );
+			kill( getppid(), SIGUSR2 );
 		}
     }
 }
@@ -4800,7 +4955,7 @@ int getfrequencies(const char *optarg)
                 //are there any illegal characters?
                 for(i=0; i<strlen(token); i++)
                 {
-                    if( (token[i] < '0') && (token[i] > '9') && (token[i] != '-'))
+                    if( (token[i] < '0' || token[i] > '9') && (token[i] != '-'))
                     {
                         free(tmp_frequencies);
                         free(optc);
@@ -5028,6 +5183,7 @@ int check_channel(struct wif *wi[], int cards)
     for(i=0; i<cards; i++)
     {
         chan = wi_get_channel(wi[i]);
+        if(G.ignore_negative_one == 1 && chan==-1) return 0;
         if(G.channel[i] != chan)
         {
             memset(G.message, '\x00', sizeof(G.message));
@@ -5228,10 +5384,19 @@ int main( int argc, char *argv[] )
         {"showack",  0, 0, 'A'},
         {"detect-anomaly", 0, 0, 'E'},
         {"output-format",  1, 0, 'o'},
+        {"ignore-negative-one", 0, &G.ignore_negative_one, 1},
         {0,          0, 0,  0 }
     };
 
 
+#ifdef USE_GCRYPT
+    // Register callback functions to ensure proper locking in the sensitive parts of libgcrypt.
+    gcry_control (GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);
+    // Disable secure memory.
+    gcry_control (GCRYCTL_DISABLE_SECMEM, 0);
+    // Tell Libgcrypt that initialization has completed.
+    gcry_control (GCRYCTL_INITIALIZATION_FINISHED, 0);
+#endif
 	pthread_mutex_init( &(G.mx_print), NULL );
     pthread_mutex_init( &(G.mx_sort), NULL );
 
