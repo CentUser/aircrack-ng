@@ -1,3 +1,9 @@
+aircrack-ng (1.2~svn2256-1kali1) kali; urgency=low
+
+  * Fixed build depends
+
+ -- Devon Kearns <dookie@kali.org>  Wed, 06 Mar 2013 06:27:25 -0700
+
 aircrack-ng (1.2~svn2256-1kali0) kali; urgency=low
 
   * Imported new upstream version
