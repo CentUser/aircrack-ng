@@ -47,24 +47,24 @@ else ifeq ($(libnl), true)
 			endif
 		endif
 	endif
-	
-	
+
+
 	ifeq ($(NL1FOUND),Y)
 		NLLIBNAME = libnl-1
 	endif
-	
+
 	ifeq ($(NL3xFOUND),Y)
 		COMMON_CFLAGS += -DCONFIG_LIBNL30
 		LIBS += -lnl-genl-3
 		NLLIBNAME = libnl-3.0
 	endif
-	
+
 	ifeq ($(NL3FOUND),Y)
 		COMMON_CFLAGS += -DCONFIG_LIBNL30
 		LIBS += -lnl-genl
 		NLLIBNAME = libnl-3.0
 	endif
-	
+
 	# nl-3.1 has a broken libnl-gnl-3.1.pc file
 	# as show by pkg-config --debug --libs --cflags --exact-version=3.1 libnl-genl-3.1;echo $?
 	ifeq ($(NL31FOUND),Y)
@@ -72,29 +72,38 @@ else ifeq ($(libnl), true)
 		LIBS += -lnl-genl
 		NLLIBNAME = libnl-3.1
 	endif
-	
+
 	ifeq ($(NLLIBNAME),)
                 $(error Cannot find development files for any supported version of libnl. install either libnl1 or libnl3.)
 	endif
-	
+
 	LIBS += $(shell $(PKG_CONFIG) --libs $(NLLIBNAME))
-	COMMON_CFLAGS += -DCONFIG_LIBNL $(shell $(PKG_CONFIG) --cflags $(NLLIBNAME))
+	COMMON_CFLAGS += $(shell $(PKG_CONFIG) --cflags $(NLLIBNAME))
 endif
 
 ifeq ($(subst TRUE,true,$(filter TRUE true,$(airpcap) $(AIRPCAP))),true)
 	LIBAIRPCAP = -DHAVE_AIRPCAP -I$(AC_ROOT)/../developers/Airpcap_Devpack/include
 endif
 
-ifeq ($(OSNAME), cygwin)
-CC              = $(TOOL_PREFIX)gcc-4
-else
-CC		= $(TOOL_PREFIX)gcc
+ifneq ($(origin CC),environment)
+	ifeq ($(OSNAME), cygwin)
+		ARCHITECTURE	= $(shell uname -m)
+		ifeq ($(ARCHITECTURE), i686)
+			CC	= $(TOOL_PREFIX)gcc-4
+		else
+			CC	= $(TOOL_PREFIX)gcc
+		endif
+	else
+		CC	= $(TOOL_PREFIX)gcc
+	endif
 endif
 
-RANLIB		= $(TOOL_PREFIX)ranlib
-AR		= $(TOOL_PREFIX)ar
+RANLIB		?= $(TOOL_PREFIX)ranlib
+ifneq ($(origin AR),environment)
+	AR	= $(TOOL_PREFIX)ar
+endif
 
-REVISION	= $(shell $(AC_ROOT)/evalrev)
+REVISION	= $(shell $(AC_ROOT)/evalrev $(AC_ROOT))
 REVFLAGS	?= -D_REVISION=$(REVISION)
 
 OPTFLAGS        = -D_FILE_OFFSET_BITS=64
@@ -112,6 +121,10 @@ libdir		= $(prefix)/lib
 etcdir		= $(prefix)/etc/aircrack-ng
 
 GCC_OVER45	= $(shell expr 45 \<= `$(CC) -dumpversion | awk -F. '{ print $1$2 }'`)
+ifeq ($(GCC_OVER45), 0)
+	GCC_OVER45	= $(shell expr 4.5 \<= `$(CC) -dumpversion | awk -F. '{ print $1$2 }'`)
+endif
+
 ifeq ($(GCC_OVER45), 1)
-CFLAGS		+= -Wno-unused-but-set-variable -Wno-array-bounds
+	CFLAGS		+= -Wno-unused-but-set-variable -Wno-array-bounds
 endif
