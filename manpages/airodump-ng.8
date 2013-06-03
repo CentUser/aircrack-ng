@@ -1,4 +1,4 @@
-.TH AIRODUMP-NG 8 "April 2010" "Version 1.1"
+.TH AIRODUMP-NG 8 "May 2013" "Version 1.2-beta1"
 
 .SH NAME
 airodump-ng - a wireless packet capture tool for aircrack-ng
@@ -55,6 +55,9 @@ Active Scanning Simulation (send probe requests and parse the probe responses).
 .TP
 .I -M, --manufacturer
 Display a manufacturer column with the information obtained from the IEEE OUI list. See airodump-ng-oui-update(8)
+.TP
+.I -U, --uptime
+Display APs uptime obtained from its beacon timestamp.
 .TP
 .I --output-format <formats>
 Define the formats to use (separated by a comma). Possible values are: pcap, ivs, csv, gps, kismet, netxml. The default values are: pcap, csv, kismet, kismet-newcore.
