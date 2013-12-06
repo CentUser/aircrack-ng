@@ -1,3 +1,9 @@
+aircrack-ng (1.2-beta2-0kali1) kali; urgency=low
+
+  * Upstream import
+
+ -- Mati Aharoni <muts@kali.org>  Thu, 05 Dec 2013 19:45:54 -0500
+
 aircrack-ng (1.2-beta1-1kali1) kali; urgency=low
 
   * Force rebuild
