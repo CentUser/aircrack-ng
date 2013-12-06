@@ -1,7 +1,7 @@
 /*
  *  OS dependent APIs for Linux
  *
- *  Copyright (C) 2006, 2007, 2008 Thomas d'Otreppe
+ *  Copyright (C) 2006-2013 Thomas d'Otreppe
  *  Copyright (C) 2004, 2005 Christophe Devine
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -45,7 +45,7 @@
 #include <linux/nl80211.h>
 #include <netlink/genl/genl.h>
 #include <netlink/genl/family.h>
-#include <netlink/genl/ctrl.h>  
+#include <netlink/genl/ctrl.h>
 #include <netlink/msg.h>
 #include <netlink/attr.h>
 #include <linux/genetlink.h>
@@ -492,7 +492,7 @@ static int linux_set_rate(struct wif *wi, int rate)
     case DT_MAC80211_RT:
 
         dev->rate = (rate/500000);
-        //return 0; 
+        //return 0;
         //Newer mac80211 stacks (2.6.31 and up)
         //don't care about Radiotap header anymore, so ioctl below must also be done!
         //[see Documentation/networking/mac80211-injection.txt]
@@ -616,7 +616,7 @@ static int linux_read(struct wif *wi, unsigned char *buf, int count,
         break;
     }
 
-    memset( buf, 0, sizeof( buf ) );
+    memset( buf, 0, count );
 
     /* XXX */
     if (ri)
@@ -1615,6 +1615,7 @@ static int do_linux_open(struct wif *wi, char *iface)
     char r_file[128], buf[128];
     struct ifreq ifr;
     char * unused_str;
+    int iface_malloced = 0;
 
     dev->inject_wlanng = 1;
     dev->rate = 2; /* default to 1Mbps if nothing is set */
@@ -1901,6 +1902,7 @@ static int do_linux_open(struct wif *wi, char *iface)
         strncpy(dev->main_if, iface, strlen(iface));
 
         iface=(char*)malloc(strlen(buf)+1);
+        iface_malloced = 1;
         memset(iface, 0, strlen(buf)+1);
         strncpy(iface, buf, strlen(buf));
     }
@@ -2011,11 +2013,13 @@ static int do_linux_open(struct wif *wi, char *iface)
 
     dev->arptype_in = dev->arptype_out;
 
+    if(iface_malloced) free(iface);
     return 0;
 close_out:
     close(dev->fd_out);
 close_in:
     close(dev->fd_in);
+    if(iface_malloced) free(iface);
     return 1;
 }
 
@@ -2053,6 +2057,8 @@ static void linux_close(struct wif *wi)
 		close(pl->fd_in);
 	if (pl->fd_out)
 		close(pl->fd_out);
+	if (pl->fd_main)
+		close(pl->fd_main);
 
 	do_free(wi);
 }

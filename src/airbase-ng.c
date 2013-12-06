@@ -2,7 +2,7 @@
  *  802.11 monitor AP
  *  based on airtun-ng
  *
- *  Copyright (C) 2008-2010 Thomas d'Otreppe
+ *  Copyright (C) 2008-2013 Thomas d'Otreppe
  *  Copyright (C) 2008, 2009 Martin Beck
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -116,7 +116,10 @@ static struct wif *_wi_in, *_wi_out;
     "\xB4\x00\x4E\x04\xBB\xBB\xBB\xBB\xBB\xBB\xCC\xCC\xCC\xCC\xCC\xCC"
 
 #define RATES           \
-    "\x01\x04\x02\x04\x0B\x16\x32\x08\x0C\x12\x18\x24\x30\x48\x60\x6C"
+    "\x01\x04\x02\x04\x0B\x16"
+
+#define EXTENDED_RATES           \
+    "\x32\x08\x0C\x12\x18\x24\x30\x48\x60\x6C"
 
 #define PROBE_REQ       \
     "\x40\x00\x00\x00\xFF\xFF\xFF\xFF\xFF\xFF\xCC\xCC\xCC\xCC\xCC\xCC"  \
@@ -134,10 +137,12 @@ static struct wif *_wi_in, *_wi_out;
     "\x30\x14\x01\x00\x00\x0f\xac\x02\x01\x00\x00\x0f\xac\x01\x01\x00"  \
     "\x00\x0f\xac\x02\x01\x00"
 
-#define WPA_TAGS        \
+#define ALL_WPA2_TAGS        \
     "\x30\x28\x01\x00\x00\x0f\xac\x01\x05\x00\x00\x0f\xac\x01\x00\x0f"  \
     "\xac\x02\x00\x0f\xac\x03\x00\x0f\xac\x04\x00\x0f\xac\x05\x02\x00"  \
-    "\x00\x0f\xac\x01\x00\x0f\xac\x02\x03\x00"  \
+    "\x00\x0f\xac\x01\x00\x0f\xac\x02\x03\x00"
+
+#define ALL_WPA1_TAGS        \
     "\xdd\x2A\x00\x50\xf2\x01\x01\x00\x00\x50\xf2\x02\x05\x00\x00\x50"  \
     "\xf2\x01\x00\x50\xf2\x02\x00\x50\xf2\x03\x00\x50\xf2\x04\x00\x50"  \
     "\xf2\x05\x02\x00\x00\x50\xf2\x01\x00\x50\xf2\x02"
@@ -150,7 +155,7 @@ extern const unsigned long int crc_tbl[256];
 
 char usage[] =
 "\n"
-"  %s - (C) 2008-2010 Thomas d'Otreppe\n"
+"  %s - (C) 2008-2013 Thomas d'Otreppe\n"
 "  Original work: Martin Beck\n"
 "  http://www.aircrack-ng.org\n"
 "\n"
@@ -2334,6 +2339,8 @@ int addarp(uchar* packet, int length)
     if(memcmp(bssid, opt.r_bssid, 6) != 0)
         return -1;
 
+    packet[21] ^= ((rand() % 255)+1); //Sohail:flip sender MAC address since few clients do not honor ARP from its own MAC
+
     if(opt.nb_arp >= opt.ringbuffer)
         return -1;
 
@@ -3013,11 +3020,16 @@ skip_probe:
                     packet[length]   = 0x03;
                     packet[length+1] = 0x01;
                     temp_channel = wi_get_channel(_wi_in); //current channel
-                    if ((temp_channel > 255 || temp_channel < 1) && !invalid_channel_displayed) {
-                    	// Display error message once
-                    	invalid_channel_displayed = 1;
-                    	fprintf(stderr, "Error: Got channel %d, expected a value < 256. Please report.\n", temp_channel);
-                    }
+                    if (!invalid_channel_displayed) {
+                	    if (temp_channel > 255) {
+                	    	// Display error message once
+                	    	invalid_channel_displayed = 1;
+                	    	fprintf(stderr, "Error: Got channel %d, expected a value < 256.\n", temp_channel);
+                	    } else if (temp_channel < 1) {
+							invalid_channel_displayed = 1;
+                	    	fprintf(stderr, "Error: Got channel %d, expected a value > 0.\n", temp_channel);
+						}
+					}
                     packet[length+2] = ((temp_channel > 255 || temp_channel < 1) && opt.channel != 0) ? opt.channel : temp_channel;
 
                     length += 3;
@@ -3026,27 +3038,32 @@ skip_probe:
                     memcpy(packet + 10, opt.r_bssid, 6);
                     memcpy(packet + 16, opt.r_bssid, 6);
 
+                    // TODO: See also about 100 lines below
                     if( opt.allwpa )
                     {
-                        memcpy(packet+length, WPA_TAGS, 0x56);
-                        length += 0x56;
+                        memcpy(packet+length, ALL_WPA2_TAGS, sizeof(ALL_WPA2_TAGS) -1);
+                        length += sizeof(ALL_WPA2_TAGS) -1;
+                        memcpy(packet+length, ALL_WPA1_TAGS, sizeof(ALL_WPA1_TAGS) -1);
+                        length += sizeof(ALL_WPA1_TAGS) -1;
                     }
-
-                    if(opt.wpa2type > 0)
+                    else
                     {
-                        memcpy(packet+length, WPA2_TAG, 22);
-                        packet[length+7] = opt.wpa2type;
-                        packet[length+13] = opt.wpa2type;
-                        length += 22;
-                    }
+                    	if(opt.wpa2type > 0)
+						{
+							memcpy(packet+length, WPA2_TAG, 22);
+							packet[length+7] = opt.wpa2type;
+							packet[length+13] = opt.wpa2type;
+							length += 22;
+						}
 
-                    if(opt.wpa1type > 0)
-                    {
-                        memcpy(packet+length, WPA1_TAG, 24);
-                        packet[length+11] = opt.wpa1type;
-                        packet[length+17] = opt.wpa1type;
-                        length += 24;
-                    }
+                    	if(opt.wpa1type > 0)
+						{
+							memcpy(packet+length, WPA1_TAG, 24);
+							packet[length+11] = opt.wpa1type;
+							packet[length+17] = opt.wpa1type;
+							length += 24;
+						}
+					}
 
                     send_packet(packet, length);
 
@@ -3111,11 +3128,16 @@ skip_probe:
                     packet[length]   = 0x03;
                     packet[length+1] = 0x01;
                     temp_channel = wi_get_channel(_wi_in); //current channel
-                    if ((temp_channel > 255 || temp_channel < 1) && !invalid_channel_displayed) {
-                    	// Display error message once
-                    	invalid_channel_displayed = 1;
-                    	fprintf(stderr, "Error: Got channel %d, expected a value < 256. Please report.\n", temp_channel);
-                    }
+                    if (!invalid_channel_displayed) {
+                	    if (temp_channel > 255) {
+                	    	// Display error message once
+                	    	invalid_channel_displayed = 1;
+                	    	fprintf(stderr, "Error: Got channel %d, expected a value < 256.\n", temp_channel);
+                	    } else if (temp_channel < 1) {
+							invalid_channel_displayed = 1;
+                	    	fprintf(stderr, "Error: Got channel %d, expected a value > 0.\n", temp_channel);
+						}
+					}
                     packet[length+2] = ((temp_channel > 255 || temp_channel < 1) && opt.channel != 0) ? opt.channel : temp_channel;
 
                     length += 3;
@@ -3124,26 +3146,31 @@ skip_probe:
                     memcpy(packet + 10, opt.r_bssid, 6);
                     memcpy(packet + 16, opt.r_bssid, 6);
 
+                    // TODO: See also around ~3500
                     if( opt.allwpa )
                     {
-                        memcpy(packet+length, WPA_TAGS, 0x56);
-                        length += 0x56;
+                        memcpy(packet+length, ALL_WPA2_TAGS, sizeof(ALL_WPA2_TAGS) -1);
+                        length += sizeof(ALL_WPA2_TAGS) -1;
+                        memcpy(packet+length, ALL_WPA1_TAGS, sizeof(ALL_WPA1_TAGS) -1);
+                        length += sizeof(ALL_WPA1_TAGS) -1;
                     }
-
-                    if(opt.wpa2type > 0)
+                    else
                     {
-                        memcpy(packet+length, WPA2_TAG, 22);
-                        packet[length+7] = opt.wpa2type;
-                        packet[length+13] = opt.wpa2type;
-                        length += 22;
-                    }
+                    	if(opt.wpa2type > 0)
+						{
+							memcpy(packet+length, WPA2_TAG, 22);
+							packet[length+7] = opt.wpa2type;
+							packet[length+13] = opt.wpa2type;
+							length += 22;
+						}
 
-                    if(opt.wpa1type > 0)
-                    {
-                        memcpy(packet+length, WPA1_TAG, 24);
-                        packet[length+11] = opt.wpa1type;
-                        packet[length+17] = opt.wpa1type;
-                        length += 24;
+						if(opt.wpa1type > 0)
+						{
+							memcpy(packet+length, WPA1_TAG, 24);
+							packet[length+11] = opt.wpa1type;
+							packet[length+17] = opt.wpa1type;
+							length += 24;
+						}
                     }
 
                     send_packet(packet, length);
@@ -3554,28 +3581,32 @@ void beacon_thread( void *arg )
             memcpy(beacon+beacon_len, essid, essid_len); //actual essid
             beacon_len+=essid_len;
 
-            memcpy(beacon+beacon_len, RATES, 16); //rates+extended rates
-            beacon_len+=16;
+            memcpy(beacon+beacon_len, RATES, sizeof(RATES) -1); //rates
+            beacon_len += sizeof(RATES) -1;
 
             beacon[beacon_len] = 0x03; //channel tag
             beacon[beacon_len+1] = 0x01;
             temp_channel = wi_get_channel(_wi_in); //current channel
-            if ((temp_channel > 255 || temp_channel < 1) && !invalid_channel_displayed) {
-            	// Display error message once
-            	invalid_channel_displayed = 1;
-            	fprintf(stderr, "Error: Got channel %d, expected a value < 256. Please report.\n", temp_channel);
-            }
+			if (!invalid_channel_displayed) {
+				if (temp_channel > 255) {
+					// Display error message once
+					invalid_channel_displayed = 1;
+					fprintf(stderr, "Error: Got channel %d, expected a value < 256.\n", temp_channel);
+				} else if (temp_channel < 1) {
+					invalid_channel_displayed = 1;
+					fprintf(stderr, "Error: Got channel %d, expected a value > 0.\n", temp_channel);
+				}
+			}
             beacon[beacon_len+2] = ((temp_channel > 255 || temp_channel < 1) && opt.channel != 0) ? opt.channel : temp_channel;
 
             beacon_len+=3;
 
             if( opt.allwpa )
             {
-                memcpy(beacon+beacon_len, WPA_TAGS, 0x56);
-                beacon_len += 0x56;
+                memcpy(beacon+beacon_len, ALL_WPA2_TAGS, sizeof(ALL_WPA2_TAGS) -1);
+                beacon_len += sizeof(ALL_WPA2_TAGS) -1;
             }
-
-            if(opt.wpa2type > 0)
+            else if(opt.wpa2type > 0)
             {
                 memcpy(beacon+beacon_len, WPA2_TAG, 22);
                 beacon[beacon_len+7] = opt.wpa2type;
@@ -3583,7 +3614,16 @@ void beacon_thread( void *arg )
                 beacon_len += 22;
             }
 
-            if(opt.wpa1type > 0)
+            // Add extended rates
+            memcpy(beacon + beacon_len, EXTENDED_RATES, sizeof(EXTENDED_RATES) -1);
+            beacon_len += sizeof(EXTENDED_RATES) -1;
+
+            if( opt.allwpa )
+            {
+                memcpy(beacon+beacon_len, ALL_WPA1_TAGS, sizeof(ALL_WPA1_TAGS) -1);
+                beacon_len += sizeof(ALL_WPA1_TAGS) -1;
+            }
+            else if(opt.wpa1type > 0)
             {
                 memcpy(beacon+beacon_len, WPA1_TAG, 24);
                 beacon[beacon_len+11] = opt.wpa1type;
