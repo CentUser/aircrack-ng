@@ -1,7 +1,7 @@
 /*
  *  802.11 WEP / WPA-PSK Key Cracker
  *
- *  Copyright (C) 2006-2010 Thomas d'Otreppe
+ *  Copyright (C) 2006-2013 Thomas d'Otreppe
  *  Copyright (C) 2004, 2005 Christophe Devine
  *
  *  Advanced WEP attacks developed by KoreK
@@ -181,8 +181,7 @@ const uchar R[256] =
 
 char usage[] =
 "\n"
-"  %s - (C) 2006-2010 Thomas d\'Otreppe\n"
-"  Original work: Christophe Devine\n"
+"  %s - (C) 2006-2013 Thomas d\'Otreppe\n"
 "  http://www.aircrack-ng.org\n"
 "\n"
 "  usage: aircrack-ng [options] <.cap / .ivs file(s)>\n"
@@ -480,8 +479,9 @@ inline int wpa_receive_passphrase(char *key, struct WPA_data* data)
 int checkbssids(char *bssidlist)
 {
 	int first = 1;
+	int failed = 0;
 	int i = 0;
-	char *list, *tmp;
+	char *list, *frontlist, *tmp;
 	int nbBSSID = 0;
 
 	if(bssidlist == NULL) return -1;
@@ -490,7 +490,7 @@ int checkbssids(char *bssidlist)
 #define VALID_CHAR(x)   ((IS_X(x)) || hexCharToInt(x) > -1)
 
 #define VALID_SEP(arg)	( ((arg) == '_') || ((arg) == '-') || ((arg) == ':') )
-	list = strdup(bssidlist);
+	frontlist = list = strdup(bssidlist);
 	do
 	{
 		tmp = strsep(&list, ",");
@@ -500,42 +500,50 @@ int checkbssids(char *bssidlist)
 
 		++nbBSSID;
 
-		if(strlen(tmp) != 17) return -1;
+		if(strlen(tmp) != 17) failed = 1;
 
 		//first byte
-		if(!VALID_CHAR(tmp[ 0])) return -1;
-		if(!VALID_CHAR(tmp[ 1])) return -1;
-		if(!VALID_SEP( tmp[ 2])) return -1;
+		if(!VALID_CHAR(tmp[ 0])) failed = 1;
+		if(!VALID_CHAR(tmp[ 1])) failed = 1;
+		if(!VALID_SEP( tmp[ 2])) failed = 1;
 
 		//second byte
-		if(!VALID_CHAR(tmp[ 3])) return -1;
-		if(!VALID_CHAR(tmp[ 4])) return -1;
-		if(!VALID_SEP( tmp[ 5])) return -1;
+		if(!VALID_CHAR(tmp[ 3])) failed = 1;
+		if(!VALID_CHAR(tmp[ 4])) failed = 1;
+		if(!VALID_SEP( tmp[ 5])) failed = 1;
 
 		//third byte
-		if(!VALID_CHAR(tmp[ 6])) return -1;
-		if(!VALID_CHAR(tmp[ 7])) return -1;
-		if(!VALID_SEP( tmp[ 8])) return -1;
+		if(!VALID_CHAR(tmp[ 6])) failed = 1;
+		if(!VALID_CHAR(tmp[ 7])) failed = 1;
+		if(!VALID_SEP( tmp[ 8])) failed = 1;
 
 		//fourth byte
-		if(!VALID_CHAR(tmp[ 9])) return -1;
-		if(!VALID_CHAR(tmp[10])) return -1;
-		if(!VALID_SEP( tmp[11])) return -1;
+		if(!VALID_CHAR(tmp[ 9])) failed = 1;
+		if(!VALID_CHAR(tmp[10])) failed = 1;
+		if(!VALID_SEP( tmp[11])) failed = 1;
 
 		//fifth byte
-		if(!VALID_CHAR(tmp[12])) return -1;
-		if(!VALID_CHAR(tmp[13])) return -1;
-		if(!VALID_SEP( tmp[14])) return -1;
+		if(!VALID_CHAR(tmp[12])) failed = 1;
+		if(!VALID_CHAR(tmp[13])) failed = 1;
+		if(!VALID_SEP( tmp[14])) failed = 1;
 
 		//sixth byte
-		if(!VALID_CHAR(tmp[15])) return -1;
-		if(!VALID_CHAR(tmp[16])) return -1;
+		if(!VALID_CHAR(tmp[15])) failed = 1;
+		if(!VALID_CHAR(tmp[16])) failed = 1;
 
+		if(failed) {
+			free(frontlist);
+			return -1;
+		}
 
 		if(first)
 		{
-			for(i=0; i< 17; i++)
-				if( IS_X(tmp[i])) return -1;
+			for(i=0; i< 17; i++) {
+				if( IS_X(tmp[i])) {
+					free(frontlist);
+					return -1;
+				}
+			}
 
 			opt.firstbssid = (unsigned char *) malloc(sizeof(unsigned char));
 			getmac(tmp, 1, opt.firstbssid);
@@ -545,6 +553,7 @@ int checkbssids(char *bssidlist)
 	} while(list);
 
 	// Success
+	free(frontlist);
 	return nbBSSID;
 }
 
@@ -4590,23 +4599,22 @@ int do_wpa_crack()
 
 int next_key( char **key, int keysize )
 {
-	char *tmp, *tmp2;
+	char *tmp, *tmpref;
 	int i, rtn;
 	unsigned int dec;
 	char *hex;
 
-	tmp2 = tmp = (char*) malloc(1024);
+	tmpref = tmp = (char*) malloc(1024);
 
 	while(1)
 	{
 		rtn = 0;
-		tmp = tmp2;
 		pthread_mutex_lock( &mx_dic );
 		if(opt.dict == NULL)
 		{
 			pthread_mutex_unlock( &mx_dic );
 			//printf( "\nPassphrase not in dictionary \n" );
-			free(tmp);
+			free(tmpref);
 			tmp = NULL;
 			return( FAILURE );
 		}
@@ -4625,7 +4633,7 @@ int next_key( char **key, int keysize )
 //				printf( "\nPassphrase not in dictionary \"%s\" \n", opt.dicts[opt.nbdict] );
 				if(next_dict(opt.nbdict+1) != 0)
 				{
-					free(tmp);
+					free(tmpref);
 					tmp = NULL;
 					return( FAILURE );
 				}
@@ -4681,7 +4689,7 @@ int next_key( char **key, int keysize )
 //				printf( "\nPassphrase not in dictionary \"%s\" \n", opt.dicts[opt.nbdict] );
 				if(next_dict(opt.nbdict+1) != 0)
 				{
-					free(tmp);
+					free(tmpref);
 					tmp = NULL;
 					return( FAILURE );
 				}
@@ -4704,9 +4712,7 @@ int next_key( char **key, int keysize )
 		break;
 	}
 
-	free(tmp);
-	tmp = NULL;
-
+	free(tmpref);
 	return( SUCCESS );
 }
 

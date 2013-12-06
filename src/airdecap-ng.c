@@ -1,7 +1,7 @@
 /*
  *  802.11 to Ethernet pcap translator
  *
- *  Copyright (C) 2006, 2007, 2008, 2009 Thomas d'Otreppe
+ *  Copyright (C) 2006-2013 Thomas d'Otreppe
  *  Copyright (C) 2004, 2005  Christophe Devine
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -57,8 +57,7 @@ extern int calc_crc_buf( unsigned char *buf, int len );
 char usage[] =
 
 "\n"
-"  %s - (C) 2006, 2007, 2008, 2009 Thomas d\'Otreppe\n"
-"  Original work: Christophe Devine\n"
+"  %s - (C) 2006-2013 Thomas d\'Otreppe\n"
 "  http://www.aircrack-ng.org\n"
 "\n"
 "  usage: airdecap-ng [options] <pcap file>\n"
@@ -163,7 +162,8 @@ int write_packet( FILE *f_out, struct pcap_pkthdr *pkh, uchar *h80211 )
             pkh->len    -= 24 + qosh_offset + 6;
             pkh->caplen -= 24 + qosh_offset + 6;
 
-            memcpy( buffer + 12, h80211 + qosh_offset + 30, pkh->caplen );
+            /* can overlap */
+            memmove( buffer + 12, h80211 + qosh_offset + 30, pkh->caplen );
         }
         else
         {
@@ -875,7 +875,8 @@ usage:
                 /* WPA data packet was successfully decrypted, *
                  * remove the WPA Ext.IV & MIC, write the data */
 
-                memcpy( h80211 + z, h80211 + z + 8, pkh.caplen - z );
+                /* can overlap */
+                memmove( h80211 + z, h80211 + z + 8, pkh.caplen - z );
 
                 stats.nb_unwpa++;
 

@@ -17,7 +17,17 @@
 #        Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 required(){
-	check_function $1 ||  { specialwarn "${warn}${2}"; return 1; }
+    check_function $1 ||  { specialwarn "${warn}${2}"; return 1; }
+}
+
+change_mac(){
+    type macchanger && {
+        fail=$(ifconfig $1 down; $MACCHANGER $1 --mac $2 2>&1; ifconfig $1 up)
+    } || {
+        fail=$(ifconfig $1 down; ifconfig $1 $2 2>&1; ifconfig $1 up)
+    }
+
+    [[ $? == 0 ]] && echo -e "${mark}Interface mac set up correctly $(FAKE_MAC)" || echo -en "${mark}Unable to set interface mac: $?\n $fail"
 }
 
 error(){
@@ -29,13 +39,13 @@ info(){
 
 
 reload_config(){
-	return
+    return
 }
 
 cleanautovars(){
-    export AUTO=0; 
-	export QUIET=""; 
-	export INTERACTIVE=$OLDINTERACTIVE
+    export AUTO=0;
+    export QUIET="";
+    export INTERACTIVE=$OLDINTERACTIVE
     return
 }
 
@@ -86,7 +96,7 @@ eof
 
 launch_help_fifo(){
     [[ -e $DUMP_PATH/help_fifo ]] || mkfifo $DUMP_PATH/help_fifo &>/dev/null
-	execute "Help"  "tail -f $DUMP_PATH/help_fifo"
+    execute "Help"  "tail -f $DUMP_PATH/help_fifo"
 }
 
 help_fifo(){
@@ -117,7 +127,7 @@ setargs(){
         esac
     done
 
-    for i in ${opt_functions[@]}; do [[ $i == "usage" ]] && { usage; exit 1; }; done # Small hack to execute usage the first 
+    for i in ${opt_functions[@]}; do [[ $i == "usage" ]] && { usage; exit 1; }; done # Small hack to execute usage the first
     for i in ${opt_functions[@]}; do [[ $i != auto ]] && options_$i || execute_auto=1; done
     [[ $execute_auto ]] && options_auto; # Small hack to execute auto the lastest xD
 }
@@ -138,23 +148,24 @@ opts_wireless(){
 }
 
 options_auto(){
-	export noscan=1;
+    export noscan=1;
     temporary_switch_clear;
     export clear="";
-	check_function autopwn || source $path/autocrack;
-	check_function doexit || source $path/internal/exit;
+    check_function autopwn || source $path/autocrack;
+    check_function doexit || source $path/internal/exit;
     autopwn runner
     doexit;
 }
 
 load_plugins(){
-    for i in ${@}; do 
+    for i in ${@}; do
         [[ $i =~ (.*)bash(.*) ]] && export BASH_PLUGIN=1 || {
             if [[ -e $path/plugins/$i ]]; then
                 _source "${path}/plugins/${i}"
             fi
         }
     done
+    [[ $BASH_PLUGIN ]] || BASH_PLUGIN=0
 }
 
 initial_warning(){
@@ -168,14 +179,14 @@ sleep $warn_time
 # Standard functions.
 
 markwarn(){
-	echo -e "${warn}${@}"
+    echo -e "${warn}${@}"
 }
 
 _debug(){
     if [ "$debug" == 1 ]; then markwarn $1; fi
 }
 
-execute(){ 
+execute(){
     check_function mkmenu || source $path/interface
     check_function save_pids || source $path/internal/childs
     title=$1; shift;
@@ -185,8 +196,8 @@ execute(){
         echo
         read -p $"Enter extra options to execute: " eopts
     fi
-        if [ "$1" == "crack" ]; then shift; fi # FIXME This will not do anything. 
-        if [ "$QUIET" != "" ] || [ "$AUTO" == "1" ]; then 
+        if [ "$1" == "crack" ]; then shift; fi # FIXME This will not do anything.
+        if [ "$QUIET" != "" ] || [ "$AUTO" == "1" ]; then
             [[ $NOTITLE ]] || warn "${mark}$title"
             if [[ $wait_for_execute != 1 ]]; then
                 ${@} $eopts &> /dev/null &
@@ -194,29 +205,36 @@ execute(){
                 ${@} $eopts &> /dev/null
             fi
         else
-			args="${@}"; args="${args/% /} ${eopts}" # Failsafe, this way if there's a trailing space it'll remove it before executing.
+            args="${@}"; args="${args/% /} ${eopts}" # Failsafe, this way if there's a trailing space it'll remove it before executing.
             [[ $wait_for_execute != 1 ]] && {
                 $CDCMD $TERMINAL $HOLDA $TITLEFLAG "$title" $termargs  "$args" &
             } || {
                 $CDCMD $TERMINAL $HOLDA $TITLEFLAG "$title" $termargs "$args"
             }
         fi
-	[[ $debug == 1 ]] && { echo $TERMINAL $HOLDA $TITLEFLAG "$title" $TOPLEFTBIG $BGC $BACKGROUND_COLOR $FGC $DUMPING_COLOR $EXECFLAG "$args"; read; }
+    [[ $debug == 1 ]] && { echo $TERMINAL $HOLDA $TITLEFLAG "$title" $TOPLEFTBIG $BGC $BACKGROUND_COLOR $FGC $DUMPING_COLOR $EXECFLAG "$args"; read; }
     save_pids $!
 }
 
-monmode(){ { ifconfig $1 up; $iwconfig $1 |grep "Monitor" && if [ $? != 0 ]; then MON_PREFIX=$mon_prefix $AIRMON start $1 $2; fi; } &>/dev/null ; }
+monmode(){
+    {
+        ifconfig $1 up
+        [[ $($iwconfig $1) =~ (.*)Mode:Monitor(.*) ]] && {
+            MON_PREFIX=$mon_prefix $AIRMON start $1 $2
+        }
+    } &>/dev/null
+}
 
 # this function allows debugging, called from main menu.
 function debug {
-	if [ "$debug" == "1" ] || [ "$hold" == "1"  ]; then
-		export HOLD=$HOLDFLAG; echo $"Debug Mode enabled, you'll have to manually close windows"
-	else export HOLD="" ;fi
+    if [ "$debug" == "1" ] || [ "$hold" == "1"  ]; then
+        export HOLD=$HOLDFLAG; echo $"Debug Mode enabled, you'll have to manually close windows"
+    else export HOLD="" ;fi
 }
 
 _read(){
     # Read function so we can override it later, to add another interface.
-    read "${@}"; 
+    read "${@}";
 }
 
 # Various checks.
@@ -249,12 +267,12 @@ attack_wep(){
 }
 
 attack_opn(){ # If no encryption detected
-	$clear && error "Network not encrypted or not network selected";
+    $clear && error "Network not encrypted or not network selected";
 }
 
 capture(){
     hardclean
-    execute "Capturing" $AIRODUMP --ignore-negative-one --bssid $Host_MAC -w $DUMP_PATH/$Host_MAC -c $Host_CHAN -a $wifi 
+    execute "Capturing" $AIRODUMP --ignore-negative-one --bssid $Host_MAC -w $DUMP_PATH/$Host_MAC -c $Host_CHAN -a $wifi
     echo
 }
 
@@ -272,9 +290,9 @@ yesno(){
 }
 
 check_default_software(){
-	for program in ${required_software[@]}; do
-		[[ $(whereis $program) ]] || { echo -en "$program"; warn "not found, quitting." ; exit ; } 
-	done
+    for program in ${required_software[@]}; do
+        [[ $(whereis $program) ]] || { echo -en "$program"; warn "not found, quitting." ; exit ; }
+    done
 }
 
 _source $path/internal/startup
