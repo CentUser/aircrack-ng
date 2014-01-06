@@ -1,3 +1,9 @@
+aircrack-ng (1.2-beta2-0kali2) muts; urgency=low
+
+  * Added debian/watch file
+
+ -- Mati Aharoni <muts@kali.org>  Sun, 05 Jan 2014 20:33:01 -0500
+
 aircrack-ng (1.2-beta2-0kali1) kali; urgency=low
 
   * Upstream import
