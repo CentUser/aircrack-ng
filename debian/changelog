@@ -1,4 +1,4 @@
-aircrack-ng (1.2-beta2-0kali2) muts; urgency=low
+aircrack-ng (1.2-beta2-0kali2) kali; urgency=low
 
   * Added debian/watch file
 
