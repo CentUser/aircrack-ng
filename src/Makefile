@@ -14,6 +14,11 @@ BINFILES        = aircrack-ng$(EXE) airdecap-ng$(EXE) packetforge-ng$(EXE) \
 		  ivstools$(EXE) kstats$(EXE) makeivs-ng$(EXE) \
 		  airdecloak-ng$(EXE) wpaclean$(EXE)
 
+LIBPCRE		=
+ifeq ($(PCRE), true)
+	LIBPCRE	= $(shell pcre-config --libs)
+endif
+
 ifneq ($(OSNAME), cygwin) #There is yet no libpcap support for windows, so we skip the crawler
 	HAVE_PCAP	= $(shell ld -lpcap 2> /dev/null && echo yes)
 	ifeq ($(HAVE_PCAP), yes) #cannot link with -lpcap, skip crawler
@@ -47,25 +52,25 @@ ASM_AC		= sha1-sse2.S
 
 OBJS_AD		= airdecap-ng.o crypto.o common.o
 OBJS_PF		= packetforge-ng.o common.o crypto.o
-OBJS_AR		= aireplay-ng.o common.o crypto.o osdep/radiotap/radiotap-parser.o
-OBJS_ADU	= airodump-ng.o common.o crypto.o uniqueiv.o osdep/radiotap/radiotap-parser.o
+OBJS_AR		= aireplay-ng.o common.o crypto.o osdep/radiotap/radiotap.o
+OBJS_ADU	= airodump-ng.o common.o crypto.o uniqueiv.o osdep/radiotap/radiotap.o
 ifneq ($(OSNAME), Linux)
 	OBJS_ADU	+= osdep/common.o
 endif
-OBJS_AT		= airtun-ng.o common.o crypto.o osdep/radiotap/radiotap-parser.o
+OBJS_AT		= airtun-ng.o common.o crypto.o osdep/radiotap/radiotap.o
 OBJS_IV		= ivstools.o common.o crypto.o uniqueiv.o
-OBJS_AS		= airserv-ng.o common.o osdep/radiotap/radiotap-parser.o
-OBJS_WS		= wesside-ng.o crypto.o common.o osdep/radiotap/radiotap-parser.o $(OBJS_PTW)
-OBJS_BS		= besside-ng.o crypto.o common.o osdep/radiotap/radiotap-parser.o $(OBJS_PTW)
+OBJS_AS		= airserv-ng.o common.o osdep/radiotap/radiotap.o
+OBJS_WS		= wesside-ng.o crypto.o common.o osdep/radiotap/radiotap.o $(OBJS_PTW)
+OBJS_BS		= besside-ng.o crypto.o common.o osdep/radiotap/radiotap.o $(OBJS_PTW)
 OBJS_BC		= besside-ng-crawler.o
 OBJS_AL		= airolib-ng.o crypto.o common.o
-OBJS_ES		= easside-ng.o common.o osdep/radiotap/radiotap-parser.o
+OBJS_ES		= easside-ng.o common.o osdep/radiotap/radiotap.o
 OBJS_BUDDY	= buddy-ng.o common.o
 OBJS_MI		= makeivs-ng.o common.o uniqueiv.o
-OBJS_AB		= airbase-ng.o common.o crypto.o osdep/radiotap/radiotap-parser.o
-OBJS_AU		= airdecloak-ng.o common.o osdep/radiotap/radiotap-parser.o
-OBJS_TT		= tkiptun-ng.o common.o crypto.o osdep/radiotap/radiotap-parser.o
-OBJS_WC		= wpaclean.o osdep/radiotap/radiotap-parser.o
+OBJS_AB		= airbase-ng.o common.o crypto.o osdep/radiotap/radiotap.o
+OBJS_AU		= airdecloak-ng.o common.o osdep/radiotap/radiotap.o
+OBJS_TT		= tkiptun-ng.o common.o crypto.o osdep/radiotap/radiotap.o
+OBJS_WC		= wpaclean.o osdep/radiotap/radiotap.o
 
 OSD		= osdep
 LIBS		:= -L$(OSD) -l$(OSD) $(LIBS)
@@ -136,7 +141,7 @@ aireplay-ng$(EXE): $(OBJS_AR) $(LIBOSD)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS_AR) -o $(@) $(LIBS) $(LIBSSL)
 
 airodump-ng$(EXE): $(OBJS_ADU) $(LIBOSD)
-	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS_ADU) -o $(@) $(LIBS) $(LIBSSL) -lpthread
+	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS_ADU) -o $(@) $(LIBS) $(LIBSSL) -lpthread $(LIBPCRE)
 
 airserv-ng$(EXE): $(OBJS_AS) $(LIBOSD)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS_AS) -o $(@) $(LIBS)

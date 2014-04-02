@@ -1,4 +1,4 @@
-.TH AIRODUMP-NG 8 "November 2013" "Version 1.2-beta2"
+.TH AIRODUMP-NG 8 "March 2014" "Version 1.2-beta3"
 
 .SH NAME
 airodump-ng - a wireless packet capture tool for aircrack-ng
@@ -81,6 +81,12 @@ It will only show networks, matching the given bssid ^ netmask combination. Need
 .TP
 .I -a
 It will only show associated clients.
+.TP
+.I -N, --essid
+Filter APs by ESSID. Can be used several times to match a set of ESSID.
+.TP
+.I -R, --essid-regex
+Filter APs by ESSID using a regular expression.
 .SH INTERACTION
 .PP
 .BI airodump-ng

@@ -34,9 +34,17 @@ ifeq ($(subst TRUE,true,$(filter TRUE true,$(sqlite) $(SQLITE))),true)
 	COMMON_CFLAGS	+= -I/usr/local/include -DHAVE_SQLITE
 endif
 
+ifeq ($(pcre), true)
+PCRE            = true
+endif
+
+ifeq ($(PCRE), true)
+COMMON_CFLAGS += $(shell pcre-config --cflags) -DHAVE_PCRE
+endif
+
 ifeq ($(OSNAME), cygwin)
 	COMMON_CFLAGS   += -DCYGWIN
-else ifeq ($(libnl), true)
+else ifneq ($(libnl), false)
 	NL3xFOUND := $(shell $(PKG_CONFIG) --atleast-version=3.2 libnl-3.0 && echo Y)
 	ifneq ($(NL3xFOUND),Y)
 		NL31FOUND := $(shell $(PKG_CONFIG) --exact-version=3.1 libnl-3.1 && echo Y)
