@@ -41,8 +41,7 @@
 #include <getopt.h>
 #include "airdecloak-ng.h"
 #include "version.h"
-#include "osdep/radiotap/radiotap-parser.h"
-#include "osdep/radiotap/ieee80211_radiotap.h"
+#include "osdep/radiotap/radiotap_iter.h"
 
 uchar buffer[65536];
 
@@ -315,7 +314,7 @@ int get_rtap_signal(int caplen)
 
 	rthdr = (struct ieee80211_radiotap_header *)buffer;
 
-	if (ieee80211_radiotap_iterator_init(&iterator, rthdr, caplen) < 0)
+	if (ieee80211_radiotap_iterator_init(&iterator, rthdr, caplen, NULL) < 0)
 	return 0;
 
 	while (ieee80211_radiotap_iterator_next(&iterator) >= 0) {
@@ -1037,7 +1036,7 @@ int CFC_filter_consecutive_sn_ap() {
 
 	// Go to the first beacon or probe response.
 	while ( !(_packet_elt_head->current->version_type_subtype == BEACON_FRAME
-			&& _packet_elt_head->current->version_type_subtype == PROBE_RESPONSE) ) {
+			|| _packet_elt_head->current->version_type_subtype == PROBE_RESPONSE) ) {
 
 		next_packet_result = next_packet_pointer_same_fromToDS_and_source_as_current();
 		// Check if we didn't reach end of capture.

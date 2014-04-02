@@ -6,7 +6,7 @@ name="airoscript-ng"
 
 INSTALL = install -c
 INSTALLDATA = install -c -m 644
-INSTALLBIN = install -c -m 755 
+INSTALLBIN = install -c -m 755
 
 data=$(prefix)/share
 bindir=$(prefix)/sbin/
@@ -20,11 +20,10 @@ srcdir=./src
 
 install: installdirs\
 	 install-binary \
+	 install-config \
 	 install-docs \
-	 install-desktop \
 	 install-locale \
-	 install-config
-
+	 install-desktop
 
 
 installdirs:
@@ -36,7 +35,7 @@ installdirs:
 					$(datadir)/plugins \
 					$(datadir)/extras \
 					$(datadir)/templates
-	
+
 install-config:
 	@$(INSTALLDATA) $(srcdir)/conf/airoscript-ng.conf $(etcdir)
 	@$(INSTALLDATA) $(srcdir)/conf/airoscript-ng_debug.conf $(etcdir)
@@ -90,12 +89,12 @@ install-locale: generate-locale
 		fi ; \
 	done
 
-uninstall: 
+uninstall:
 	@rm -f $(bindir)/$(name)
 	@rm -f $(etcdir)/airoscript-ng*.conf
-	@rm -r $(datadir)
-	@rm -r $(docdir)
-	@rm $(mandir)/man1/airoscript-ng.1
+	@rm -rf $(datadir)
+	@rm -rf $(docdir)
+	@rm -f $(mandir)/man1/airoscript-ng.1
 	@rm -f $(picdir)/airoscript-ng.png $(picdir)/airoscript-ng.desktop $(picdir)/airoscript-ng_gtk.desktop
 	@for i in $(docdir)/*.1 ; do rm -rf $(mandir)/man1/$$i ; done
 	@for i in $(srcdir)/locale/* ; do \
@@ -105,6 +104,6 @@ uninstall:
 	done
 	@echo "Uninstalled succesfully"
 
-all: install 
+all: install
 
 .PHONY: all install uninstall locale manpages
