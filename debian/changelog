@@ -1,3 +1,9 @@
+aircrack-ng (1.2-beta3-0kali1) kali; urgency=low
+
+  * Upstream import
+
+ -- Mati Aharoni <muts@kali.org>  Wed, 02 Apr 2014 13:02:05 -0400
+
 aircrack-ng (1.2-beta2-0kali3) kali; urgency=low
 
   * Added missing dependencies
