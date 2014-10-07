@@ -11,7 +11,7 @@ Vcs-Browser: http://git.kali.org/gitweb/?p=packages/aircrack-ng.git;a=summary
 Package: aircrack-ng
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, sqlite3, wireless-tools, iw, usbutils, ethtool
-Description: An 802.11 WEP and WPA-PSK key cracking program
+Description: 802.11 WEP and WPA-PSK key cracking program
  Aircrack-ng is an 802.11 WEP and WPA-PSK keys cracking 
  program that can recover keys once enough data packets 
  have been captured. It implements the standard FMS attack 
