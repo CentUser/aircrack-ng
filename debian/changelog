@@ -1,3 +1,10 @@
+aircrack-ng (1.2-beta3-0kali3) kali; urgency=medium
+
+  * Fix rules file to enable pcre support, add libpcre3-dev to Build-Depends.
+  * Switch debhelper compat to 9.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Tue, 07 Oct 2014 10:02:17 +0200
+
 aircrack-ng (1.2-beta3-0kali2) kali; urgency=low
 
   * Fix rules files to properly override dh_auto_build/dh_auto_install.

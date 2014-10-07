@@ -1,10 +1,12 @@
 #!/usr/bin/make -f
 
+build_options = sqlite=true unstable=true libnl=true pcre=true
+
 %:
 	dh $@ 
 
 override_dh_auto_build:
-	dh_auto_build -- sqlite=true unstable=true libnl=true
+	dh_auto_build -- $(build_options)
 
 override_dh_auto_install:
-	dh_auto_install -- prefix=/usr sqlite=true unstable=true libnl=true
+	dh_auto_install -- prefix=/usr $(build_options)
