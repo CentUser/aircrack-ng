@@ -1,3 +1,9 @@
+aircrack-ng (1.2-rc1-0kali1) kali; urgency=low
+
+  * Upstream update
+
+ -- Mati Aharoni <muts@kali.org>  Sat, 01 Nov 2014 14:56:29 -0400
+
 aircrack-ng (1.2-beta3-0kali3) kali; urgency=medium
 
   * Fix rules file to enable pcre support, add libpcre3-dev to Build-Depends.
