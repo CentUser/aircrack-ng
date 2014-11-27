@@ -1,0 +1,14 @@
+#!/usr/bin/make -f
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+export MAKEFLAGS = gcrypt=true sqlite=true unstable=true pcre=true
+
+%:
+	dh $@ --with=python2
+
+override_dh_auto_install:
+	$(MAKE) install DESTDIR=$(CURDIR)/debian/aircrack-ng prefix=/usr
+	rm -f $(CURDIR)/debian/aircrack-ng/usr/share/man/man8/airodump-ng-oui-update*
+	rm -f $(CURDIR)/debian/aircrack-ng/usr/share/man/man8/airdriver-ng*
+	rm -f $(CURDIR)/debian/aircrack-ng/usr/sbin/airodump-ng-oui-update
+	rm -f $(CURDIR)/debian/aircrack-ng/usr/sbin/airdriver-ng

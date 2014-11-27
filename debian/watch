@@ -1,0 +1,3 @@
+version=3
+opts=dversionmangle=s/0~beta/beta/ \
+http://download.aircrack-ng.org/aircrack-ng(?:-|\.|_|_v|)(\d\S*)\.(?:tar\.xz|txz|tar\.bz2|tbz2|tar\.gz|tgz)
