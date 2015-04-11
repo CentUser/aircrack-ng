@@ -1,3 +1,9 @@
+aircrack-ng (1.2-rc2-0kali1) kali; urgency=low
+
+  * upstream update
+
+ -- Mati Aharoni <muts@kali.org>  Sat, 11 Apr 2015 04:43:44 -0400
+
 aircrack-ng (1.2-rc1-0kali1) kali; urgency=low
 
   * Upstream update
