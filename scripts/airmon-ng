@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 DEBUG="0"
 VERBOSE="0"
 ELITE="0"

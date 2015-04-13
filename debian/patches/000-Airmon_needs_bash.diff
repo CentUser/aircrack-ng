@@ -4,11 +4,11 @@ Author: Adam Cecile (Le_Vert) <gandalf@le-vert.net>
 Bug-Debian: http://bugs.debian.org/486025
 Forwarded: http://trac.aircrack-ng.org/ticket/1309
 ---
---- aircrack-ng-1.0~rc1/scripts/airmon-ng	2008-06-09 21:55:09.000000000 +0200
-+++ aircrack-ng-1.0~rc1/scripts/airmon-ng.new	2008-07-05 19:39:51.736505546 +0200
+--- a/scripts/airmon-ng
++++ b/scripts/airmon-ng
 @@ -1,4 +1,4 @@
 -#!/bin/sh
 +#!/bin/bash
- 
- USERID=""
- IFACE=""
+ DEBUG="0"
+ VERBOSE="0"
+ ELITE="0"

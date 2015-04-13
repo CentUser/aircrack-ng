@@ -1,6 +1,15 @@
 aircrack-ng (1:1.2-0~rc2-0kali1) kali; urgency=medium
 
   * New upstream release candidate.
+  * Update patch 000-Airmon_needs_bash.diff
+  * Drop patch 001-Airodump_whitespace_oui.diff, merged upstream.
+  * Drop patch 002-fix-libnl-detection.diff, merged upstream.
+  * Drop patch 003-dont-abort-libnl-nolinux.diff, merged upstream.
+  * Drop patch 004-CVE-2014-8321.diff, merged upstream.
+  * Drop patch 005-CVE-2014-8322.diff, merged upstream.
+  * Drop patch 006-CVE-2014-8323.diff, merged upstream.
+  * Drop patch 007-CVE-2014-8324.diff, merged upstream.
+  * Drop patch 008-Airodump_fix-ieee-oui-path.diff, fixed upstream.
 
  -- Raphaël Hertzog <hertzog@debian.org>  Mon, 13 Apr 2015 16:40:57 +0200
 

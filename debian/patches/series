@@ -1,9 +1,1 @@
 000-Airmon_needs_bash.diff
-001-Airodump_whitespace_oui.diff
-002-fix-libnl-detection.diff
-003-dont-abort-libnl-nolinux.diff
-004-CVE-2014-8321.diff
-005-CVE-2014-8322.diff
-006-CVE-2014-8323.diff
-007-CVE-2014-8324.diff
-008-Airodump_fix-ieee-oui-path.diff
