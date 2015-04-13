@@ -10,6 +10,7 @@ aircrack-ng (1:1.2-0~rc2-0kali1) kali; urgency=medium
   * Drop patch 006-CVE-2014-8323.diff, merged upstream.
   * Drop patch 007-CVE-2014-8324.diff, merged upstream.
   * Drop patch 008-Airodump_fix-ieee-oui-path.diff, fixed upstream.
+  * Build depends on libgcrypt-dev for better backportability
 
  -- Raphaël Hertzog <hertzog@debian.org>  Mon, 13 Apr 2015 16:40:57 +0200
 

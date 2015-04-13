@@ -5,7 +5,7 @@ Maintainer: Carlos Alberto Lopez Perez <clopez@igalia.com>
 Homepage: http://www.aircrack-ng.org/
 Build-Depends:
  debhelper (>= 9),
- libgcrypt20-dev | libgcrypt11-dev,
+ libgcrypt-dev | libgcrypt20-dev | libgcrypt11-dev,
  libnl-genl-3-dev [linux-any],
  libpcap0.8-dev,
  libpcre3-dev,
