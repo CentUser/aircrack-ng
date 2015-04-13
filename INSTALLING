@@ -1,6 +1,7 @@
 === Requirements ===
 
  * OpenSSL development package or libgcrypt development package
+ * pkg-config
  * If you want to use airolib-ng and '-r' option in aircrack-ng,
    SQLite development package >= 3.3.17 (3.6.X version or better is recommended):
    -  libsqlite3-devel
@@ -31,15 +32,14 @@ to compile and install the suite:
 
 * sqlite:   needed to compile airolib-ng and add support for airolib-ng
             databases in aircrack-ng.
-            On cygwin: SQLite has to be compiled manually. See next section.
 
 * airpcap:  needed for supporting airpcap devices on windows (cygwin only)
             REQUIREMENT: Copy 'developers' directory from Airpcap CD one 
                          level below this INSTALLING file
             Note: Not working yet.
 
-* unstable: needed to compile tkiptun-ng, easside-ng (and buddy-ng) and
-            wesside-ng
+* experimental: needed to compile tkiptun-ng, easside-ng (and buddy-ng),
+                wesside-ng and besside-ng
 
 * ext_scripts: needed to build airoscript-ng, versuck-ng, airgraph-ng and 
             airdrop-ng. 
@@ -50,26 +50,29 @@ to compile and install the suite:
             And also use internal fast sha1 implementation (borrowed from GIT)
 
 * libnl:    Add support for netlink (nl80211). Linux only. Requires libnl1 OR libnl3.
-            Dependencies (debian):
+            Enabled by default. Dependencies (debian):
 		LibNL 1: libnl-dev 
 		LibNL 3: libnl-3-dev and libnl-genl-3-dev.
 
-* pcre:	    Add support for regular expression matching for ESSID in airodump-ng.
+* pcre:	    Add support for regular expression matching for ESSID in airodump-ng and besside-ng.
             Dependencies (debian): libpcre3-dev
+
+* duma:     Compile with DUMA support. DUMA is a library to detect buffer overruns and under-runs.
+            Dependencies (debian): duma
 
 Example:
 
   * Compiling:
-    make sqlite=true unstable=true
+    make sqlite=true experimental=true pcre=true
 
   * Compiling with gcrypt
     make gcrypt=true
 
   * Installing:
-    make sqlite=true unstable=true install
+    make sqlite=true pcre=true experimental=true install
 
   * Installing, with external scripts:
-    make sqlite=true unstable=true ext_scripts=true
+    make sqlite=true pcre=true experimental=true ext_scripts=true
 
 === Using precompiled binaries ===
 

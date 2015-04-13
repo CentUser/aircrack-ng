@@ -1,7 +1,7 @@
 /*
  *  OS dependent APIs for Linux
  *
- *  Copyright (C) 2006-2013 Thomas d'Otreppe
+ *  Copyright (C) 2006-2015 Thomas d'Otreppe <tdotreppe@aircrack-ng.org>
  *  Copyright (C) 2004, 2005 Christophe Devine
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -72,8 +72,9 @@ struct nl80211_state state;
 static int chan;
 #endif //CONFIG_LIBNL
 
-
-#define uchar unsigned char
+/* if_nametoindex is defined in net/if.h but that conflicts with linux/if.h */
+extern unsigned int if_nametoindex (const char *__ifname);
+extern char *if_indextoname (unsigned int __ifindex, char *__ifname);
 
 typedef enum {
         DT_NULL = 0,
@@ -180,6 +181,8 @@ int check_crc_buf_osdep( unsigned char *buf, int len )
 static int is_ndiswrapper(const char * iface, const char * path)
 {
     int n, pid, unused;
+    if (!path || !iface)
+	return 0;
     if ((pid=fork())==0)
     {
         close( 0 ); close( 1 ); close( 2 ); unused = chdir( "/" );
@@ -261,22 +264,7 @@ static char * wiToolsPath(const char * tool)
                 "/usr/local/bin",
                 "/tmp"
         };
-    /*
-	#define SEPARATOR ":"
 
-	env = getenv("PATH");
-	if (env) {
-		path = strtok(env, SEPARATOR);
-		while (path) {
-			found = searchInside(path, tool);
-	                if (found != NULL)
-	                        return found;
-			path = strtok(NULL, SEPARATOR);
-		}
-	}
-	#undef SEPARATOR
-	*/
-	
 	// Also search in other known location just in case we haven't found it yet
 	nbelems = sizeof(paths) / sizeof(char *);
 	for (i = 0; i < nbelems; i++)
@@ -375,15 +363,16 @@ static void nl80211_cleanup(struct nl80211_state *state)
 static int error_handler(struct sockaddr_nl *nla, struct nlmsgerr *err,
                      void *arg)
 {
-    printf("\n\n\nERROR");
-        int *ret = arg;
-            *ret = err->error;
-                return NL_STOP;
+	if (nla) { }
+	printf("\n\n\nERROR");
+	int *ret = arg;
+	*ret = err->error;
+	return NL_STOP;
 }
 
 static void test_callback(struct nl_msg *msg, void *arg)
 {
-
+	if (msg || arg) { }
 }
 #endif /* End nl80211 */
 
@@ -888,7 +877,7 @@ static int linux_write(struct wif *wi, unsigned char *buf, int count,
         }
         /* fall thru */
     case DT_HOSTAP:
-        if( ( ((uchar *) buf)[1] & 3 ) == 2 )
+        if( ( ((unsigned char *) buf)[1] & 3 ) == 2 )
         {
             /* Prism2 firmware swaps the dmac and smac in FromDS packets */
 
@@ -937,19 +926,28 @@ static int linux_write(struct wif *wi, unsigned char *buf, int count,
 }
 
 #ifdef CONFIG_LIBNL
+static int ieee80211_channel_to_frequency(int chan)
+{
+    if (chan < 14)
+        return 2407 + chan * 5;
+
+    if (chan == 14)
+        return 2484;
+
+    /* FIXME: dot11ChannelStartingFactor (802.11-2007 17.3.8.3.2) */
+    return (chan + 1000) * 5;
+}
+
 static int linux_set_channel_nl80211(struct wif *wi, int channel)
 {
     struct priv_linux *dev = wi_priv(wi);
     char s[32];
     int pid, status, unused;
-    struct iwreq wrq;
 
     unsigned int devid;
     struct nl_msg *msg;
     unsigned int freq;
     int err;
-    struct nl_cb *cb;
-    struct nl_cb *s_cb;
     unsigned int htval = NL80211_CHAN_NO_HT;
 
     memset( s, 0, sizeof( s ) );
@@ -1024,15 +1022,6 @@ static int linux_set_channel_nl80211(struct wif *wi, int channel)
         fprintf(stderr, "failed to allocate netlink message\n");
         return 2;
     }
-    cb = nl_cb_alloc(NL_CB_DEFAULT);
-    s_cb = nl_cb_alloc(NL_CB_DEFAULT);
-    if (!cb || !s_cb) {
-        fprintf(stderr, "failed to allocate netlink callbacks\n");
-        err = 2;
-        goto out_free_msg;
-    }
-
-    //nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, test_callback, NULL);
 
     genlmsg_put(msg, 0, 0, genl_family_get_id(state.nl80211), 0,
             0, NL80211_CMD_SET_WIPHY, 0);
@@ -1042,13 +1031,11 @@ static int linux_set_channel_nl80211(struct wif *wi, int channel)
     NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_CHANNEL_TYPE, htval);
 
     nl_send_auto_complete(state.nl_sock,msg);
+    nlmsg_free(msg);
 
     dev->channel = channel;
 
     return( 0 );
- out_free_msg:
-    nlmsg_free(msg);
-    return err;
  nla_put_failure:
     return -ENOBUFS;
 }
@@ -1141,18 +1128,6 @@ static int linux_set_channel(struct wif *wi, int channel)
     dev->channel = channel;
 
     return( 0 );
-}
-
-int ieee80211_channel_to_frequency(int chan)
-{
-    if (chan < 14)
-        return 2407 + chan * 5;
-
-    if (chan == 14)
-        return 2484;
-
-    /* FIXME: dot11ChannelStartingFactor (802.11-2007 17.3.8.3.2) */
-    return (chan + 1000) * 5;
 }
 
 static int linux_set_freq(struct wif *wi, int freq)
@@ -1414,7 +1389,7 @@ int set_monitor( struct priv_linux *dev, char *iface, int fd )
 
 
 static int openraw(struct priv_linux *dev, char *iface, int fd, int *arptype,
-		   uchar *mac)
+		   unsigned char *mac)
 {
     struct ifreq ifr;
     struct ifreq ifr2;
@@ -1656,8 +1631,9 @@ static int do_linux_open(struct wif *wi, char *iface)
     }
 
         /* Check iwpriv existence */
+	iwpriv = wiToolsPath("iwpriv");
+
 #ifndef CONFIG_LIBNL
-    iwpriv = wiToolsPath("iwpriv");
     dev->iwpriv = iwpriv;
     dev->iwconfig = wiToolsPath("iwconfig");
     dev->ifconfig = wiToolsPath("ifconfig");

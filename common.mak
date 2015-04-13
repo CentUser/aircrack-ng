@@ -4,7 +4,7 @@ ifndef TOOL_PREFIX
 TOOL_PREFIX	=
 endif
 ifndef OSNAME
-OSNAME		= $(shell uname -s | sed -e 's/.*CYGWIN.*/cygwin/g' -e 's,/,-,g')
+OSNAME		:= $(shell uname -s | sed -e 's/.*CYGWIN.*/cygwin/g' -e 's,/,-,g')
 endif
 ifndef SQLITE
 SQLITE		= false
@@ -31,7 +31,7 @@ COMMON_CFLAGS	=
 
 
 ifeq ($(subst TRUE,true,$(filter TRUE true,$(sqlite) $(SQLITE))),true)
-	COMMON_CFLAGS	+= -I/usr/local/include -DHAVE_SQLITE
+	COMMON_CFLAGS	+= -DHAVE_SQLITE
 endif
 
 ifeq ($(pcre), true)
@@ -39,54 +39,66 @@ PCRE            = true
 endif
 
 ifeq ($(PCRE), true)
-COMMON_CFLAGS += $(shell pcre-config --cflags) -DHAVE_PCRE
+COMMON_CFLAGS += $(shell $(PKG_CONFIG) --cflags libpcre) -DHAVE_PCRE
 endif
 
 ifeq ($(OSNAME), cygwin)
 	COMMON_CFLAGS   += -DCYGWIN
-else ifneq ($(libnl), false)
-	NL3xFOUND := $(shell $(PKG_CONFIG) --atleast-version=3.2 libnl-3.0 && echo Y)
-	ifneq ($(NL3xFOUND),Y)
-		NL31FOUND := $(shell $(PKG_CONFIG) --exact-version=3.1 libnl-3.1 && echo Y)
+endif
+
+ifeq ($(OSNAME), Linux)
+	ifneq ($(libnl), false)
+		NL3xFOUND := $(shell $(PKG_CONFIG) --atleast-version=3.2 libnl-3.0 && echo Y)
+		ifneq ($(NL3xFOUND),Y)
+			NL31FOUND := $(shell $(PKG_CONFIG) --exact-version=3.1 libnl-3.1 && echo Y)
 			ifneq ($(NL31FOUND),Y)
 				NL3FOUND := $(shell $(PKG_CONFIG) --atleast-version=3 libnl-3.0 && echo Y)
+			endif
 			ifneq ($(NL3FOUND),Y)
 				NL1FOUND := $(shell $(PKG_CONFIG) --atleast-version=1 libnl-1 && echo Y)
 			endif
+			ifneq ($(NL1FOUND),Y)
+				NLTFOUND := $(shell $(PKG_CONFIG) --atleast-version=1 libnl-tiny && echo Y)
+			endif
 		endif
+
+
+		ifeq ($(NL1FOUND),Y)
+			NLLIBNAME = libnl-1
+			COMMON_CFLAGS += -DCONFIG_LIBNL
+		endif
+
+		ifeq ($(NLTFOUND),Y)
+			NLLIBNAME = libnl-tiny
+			COMMON_CFLAGS += -DCONFIG_LIBNL -DCONFIG_LIBNL20
+		endif
+
+		ifeq ($(NL3xFOUND),Y)
+			COMMON_CFLAGS += -DCONFIG_LIBNL30 -DCONFIG_LIBNL
+			LIBS += -lnl-genl-3
+			NLLIBNAME = libnl-3.0
+		endif
+
+		ifeq ($(NL3FOUND),Y)
+			COMMON_CFLAGS += -DCONFIG_LIBNL30 -DCONFIG_LIBNL
+			LIBS += -lnl-genl
+			NLLIBNAME = libnl-3.0
+		endif
+
+		# nl-3.1 has a broken libnl-gnl-3.1.pc file
+		# as show by pkg-config --debug --libs --cflags --exact-version=3.1 libnl-genl-3.1;echo $?
+		ifeq ($(NL31FOUND),Y)
+			COMMON_CFLAGS += -DCONFIG_LIBNL30 -DCONFIG_LIBNL
+			LIBS += -lnl-genl
+			NLLIBNAME = libnl-3.1
+		endif
+
+		NLLIBNAME ?= $(error Cannot find development files for any supported version of libnl. install either libnl1 or libnl3.)
+
+		LIBS += $(shell $(PKG_CONFIG) --libs $(NLLIBNAME))
+		COMMON_CFLAGS +=$(shell $(PKG_CONFIG) --cflags $(NLLIBNAME))
+		COMMON_CFLAGS := $(COMMON_CFLAGS)
 	endif
-
-
-	ifeq ($(NL1FOUND),Y)
-		NLLIBNAME = libnl-1
-	endif
-
-	ifeq ($(NL3xFOUND),Y)
-		COMMON_CFLAGS += -DCONFIG_LIBNL30
-		LIBS += -lnl-genl-3
-		NLLIBNAME = libnl-3.0
-	endif
-
-	ifeq ($(NL3FOUND),Y)
-		COMMON_CFLAGS += -DCONFIG_LIBNL30
-		LIBS += -lnl-genl
-		NLLIBNAME = libnl-3.0
-	endif
-
-	# nl-3.1 has a broken libnl-gnl-3.1.pc file
-	# as show by pkg-config --debug --libs --cflags --exact-version=3.1 libnl-genl-3.1;echo $?
-	ifeq ($(NL31FOUND),Y)
-		COMMON_CFLAGS += -DCONFIG_LIBNL30
-		LIBS += -lnl-genl
-		NLLIBNAME = libnl-3.1
-	endif
-
-	ifeq ($(NLLIBNAME),)
-                $(error Cannot find development files for any supported version of libnl. install either libnl1 or libnl3.)
-	endif
-
-	LIBS += $(shell $(PKG_CONFIG) --libs $(NLLIBNAME))
-	COMMON_CFLAGS += $(shell $(PKG_CONFIG) --cflags $(NLLIBNAME))
 endif
 
 ifeq ($(subst TRUE,true,$(filter TRUE true,$(airpcap) $(AIRPCAP))),true)
@@ -119,11 +131,34 @@ docdir          = $(datadir)/doc/aircrack-ng
 libdir		= $(prefix)/lib
 etcdir		= $(prefix)/etc/aircrack-ng
 
+GCC_OVER41	= $(shell expr 41 \<= `$(CC) -dumpversion | awk -F. '{ print $1$2 }'`)
 GCC_OVER45	= $(shell expr 45 \<= `$(CC) -dumpversion | awk -F. '{ print $1$2 }'`)
+GCC_OVER49	= $(shell expr 49 \<= `$(CC) -dumpversion | awk -F. '{ print $1$2 }'`)
+ifeq ($(GCC_OVER41), 0)
+	GCC_OVER41	= $(shell expr 4.1 \<= `$(CC) -dumpversion | awk -F. '{ print $1$2 }'`)
+endif
 ifeq ($(GCC_OVER45), 0)
 	GCC_OVER45	= $(shell expr 4.5 \<= `$(CC) -dumpversion | awk -F. '{ print $1$2 }'`)
+endif
+ifeq ($(GCC_OVER49), 0)
+	GCC_OVER49	= $(shell expr 4.9 \<= `$(CC) -dumpversion | awk -F. '{ print $1$2 }'`)
+endif
+
+
+ifeq ($(GCC_OVER49), 0)
+	ifeq ($(GCC_OVER41), 1)
+		COMMON_CFLAGS += -fstack-protector
+	endif
+endif
+
+ifeq ($(GCC_OVER49), 1)
+	COMMON_CFLAGS += -fstack-protector-strong
 endif
 
 ifeq ($(GCC_OVER45), 1)
 	CFLAGS		+= -Wno-unused-but-set-variable -Wno-array-bounds
+endif
+
+ifeq ($(subst TRUE,true,$(filter TRUE true,$(duma) $(DUMA))),true)
+	LIBS += -lduma
 endif
