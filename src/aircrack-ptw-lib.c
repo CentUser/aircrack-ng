@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2007, 2008, 2009 Erik Tews, Andrei Pychkine and Ralf-Philipp Weinmann.
+ *  Copyright (c) 2007-2009 Erik Tews, Andrei Pychkine and Ralf-Philipp Weinmann.
  *                2013 Ramiro Polla
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -572,7 +572,7 @@ int PTW_computeKey(PTW_attackstate * state, uint8_t * keybuf, int keylen, int te
 	 * The 64-bit SSE2-optimized rc4test() requires this buffer to be
 	 * aligned at 3 bytes.
 	 */
-	uint8_t fullkeybuf_unaligned[PTW_KSBYTES+13];
+	uint8_t fullkeybuf_unaligned[PTW_KSBYTES+13] __attribute__((aligned(16)));
 	uint8_t *fullkeybuf = &fullkeybuf_unaligned[13];
 #else
 	uint8_t fullkeybuf[PTW_KSBYTES];

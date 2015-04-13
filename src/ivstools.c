@@ -1,7 +1,7 @@
  /*
   *  IVS Tools - Convert or merge IVs
   *
-  *  Copyright (C) 2006-2013 Thomas d'Otreppe
+  *  Copyright (C) 2006-2015 Thomas d'Otreppe <tdotreppe@aircrack-ng.org>
   *  Copyright (C) 2004, 2005  Christophe Devine (pcap2ivs and mergeivs)
   *
   *  This program is free software; you can redistribute it and/or modify
@@ -92,7 +92,7 @@ struct globals
 }
 G;
 
-static uchar ZERO[32] =
+static unsigned char ZERO[32] =
         "\x00\x00\x00\x00\x00\x00\x00\x00"
         "\x00\x00\x00\x00\x00\x00\x00\x00"
         "\x00\x00\x00\x00\x00\x00\x00\x00"
@@ -102,7 +102,7 @@ extern char * getVersion(char * progname, int maj, int min, int submin, int svnr
 
 void usage(int what)
 {
-    printf("\n  %s - (C) 2006-2013 Thomas d\'Otreppe\n"
+    printf("\n  %s - (C) 2006-2014 Thomas d\'Otreppe\n"
             "  http://www.aircrack-ng.org\n"
             "\n   usage: ", getVersion("ivsTools", _MAJ, _MIN, _SUB_MIN, _REVISION, _BETA, _RC));
     if (what == 0 || what == 1)
@@ -214,10 +214,10 @@ int merge( int argc, char *argv[] )
     return( 0 );
 }
 
-int dump_add_packet( unsigned char *h80211, uint caplen)
+int dump_add_packet( unsigned char *h80211, unsigned caplen)
 {
     int i, n, seq, dlen, clen;
-    uint z;
+    unsigned z;
     struct ivs2_pkthdr ivs2;
     unsigned char *p;
     unsigned char bssid[6];
