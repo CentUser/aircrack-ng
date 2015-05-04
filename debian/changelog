@@ -1,3 +1,10 @@
+aircrack-ng (1:1.2-0~rc2-0kali2) kali; urgency=medium
+
+  * Add fix-check-kill.patch, grabbed from
+    https://github.com/aircrack-ng/aircrack-ng/commit/c7ad2523da88f057ae793e90603e2f1e2523cbbd
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Mon, 04 May 2015 14:23:36 +0200
+
 aircrack-ng (1:1.2-0~rc2-0kali1) kali; urgency=medium
 
   * New upstream release candidate.
