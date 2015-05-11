@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
-export MAKEFLAGS = gcrypt=true sqlite=true unstable=true pcre=true
+export MAKEFLAGS = gcrypt=true sqlite=true experimental=true pcre=true
 
 %:
 	dh $@ --with=python2

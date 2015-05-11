@@ -1,3 +1,13 @@
+aircrack-ng (1:1.2-0~rc2-0kali3) kali; urgency=medium
+
+  * Add a helper-script for compatibility with old command
+    airodum-ng-oui-update (Closes: 0002254)
+  * Replace unstable by expermimental in debian rules as upstream renamed
+    'unstable' to 'experimental' to fix the install of besside-ng, wesside-ng,
+    tkiptun-ng, easside-ng, buddy-ng (Closes: 0002254) 
+
+ -- Sophie Brun <sophie@freexian.com>  Mon, 11 May 2015 15:37:05 +0200
+
 aircrack-ng (1:1.2-0~rc2-0kali2) kali; urgency=medium
 
   * Add fix-check-kill.patch, grabbed from
