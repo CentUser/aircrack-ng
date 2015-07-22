@@ -1,3 +1,9 @@
+aircrack-ng (1:1.2-0~rc2-0kali5) kali-dev; urgency=medium
+
+  * Add ethtool to Depends (used by airmon-ng).
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Wed, 22 Jul 2015 17:54:03 +0200
+
 aircrack-ng (1:1.2-0~rc2-0kali4) kali-dev; urgency=medium
 
   * Update debian/watch
