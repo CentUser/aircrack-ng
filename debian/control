@@ -21,6 +21,7 @@ Depends:
  iw [linux-any],
  wireless-tools [linux-any],
  ethtool,
+ usbutils,
  ${misc:Depends},
  ${shlibs:Depends}
 Recommends:
