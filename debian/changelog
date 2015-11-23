@@ -1,6 +1,7 @@
 aircrack-ng (1:1.2-0~rc3-0kali1) kali-dev; urgency=medium
 
   * Import new upstream release
+  * Drop fix-check-kill.patch, merged upstream
 
  -- Sophie Brun <sophie@freexian.com>  Mon, 23 Nov 2015 15:39:06 +0100
 
