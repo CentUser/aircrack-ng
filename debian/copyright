@@ -4,7 +4,7 @@ Upstream-Contact: Thomas d'Otreppe <tdotreppe@aircrack-ng.org>
 Source: http://download.aircrack-ng.org/aircrack-ng-1.2-beta3.tar.gz
 
 Files: *
-Copyright: 2006-2014, Thomas d'Otreppe
+Copyright: 2006-2015, Thomas d'Otreppe
 License: GPL-2+
 
 Files: lib/csharp/MonoExample/NDesk-dbus/*
