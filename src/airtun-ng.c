@@ -84,7 +84,7 @@ extern const unsigned char crc_chop_tbl[256][4];
 
 char usage[] =
 "\n"
-"  %s - (C) 2006-2014 Thomas d'Otreppe\n"
+"  %s - (C) 2006-2015 Thomas d'Otreppe\n"
 "  Original work: Martin Beck\n"
 "  http://www.aircrack-ng.org\n"
 "\n"
@@ -92,22 +92,23 @@ char usage[] =
 "\n"
 "      -x nbpps         : number of packets per second (default: 100)\n"
 "      -a bssid         : set Access Point MAC address\n"
-"                       : In WDS Mode this sets the Receiver\n"
+"                         In WDS Mode this sets the Receiver\n"
 "      -i iface         : capture packets from this interface\n"
 "      -y file          : read PRGA from this file\n"
 "      -w wepkey        : use this WEP-KEY to encrypt packets\n"
 "      -p pass          : use this WPA passphrase to decrypt packets\n"
-"                       : (use with -a and -e)\n"
+"                         (use with -a and -e)\n"
 "      -e essid         : target network SSID (use with -p)\n"
 "      -t tods          : send frames to AP (1) or to client (0)\n"
-"                       : or tunnel them into a WDS/Bridge (2)\n"
+"                         or tunnel them into a WDS/Bridge (2)\n"
 "      -r file          : read frames out of pcap file\n"
+"      -h MAC           : source MAC address\n"
 "\n"
 "  WDS/Bridge Mode options:\n"
 "      -s transmitter   : set Transmitter MAC address for WDS Mode\n"
 "      -b               : bidirectional mode. This enables communication\n"
-"                       : in Transmitter's AND Receiver's networks.\n"
-"                       : Works only if you can see both stations.\n"
+"                         in Transmitter's AND Receiver's networks.\n"
+"                         Works only if you can see both stations.\n"
 "\n"
 "  Repeater options:\n"
 "      --repeat         : activates repeat mode\n"
@@ -1204,8 +1205,6 @@ int packet_recv(unsigned char* packet, int length)
                 }
                 else
                 {
-                    buffer = malloc( length );
-                    memcpy( buffer, packet, length );
                     if ( memcmp( smac, st_cur->stmac, 6 ) == 0 ) {
                         st_cur->pn[0] = packet[z + 7];
                         st_cur->pn[1] = packet[z + 6];

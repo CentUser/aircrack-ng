@@ -138,12 +138,12 @@ extern unsigned char * getmac(char * macAddress, int strict, unsigned char * mac
 extern int check_crc_buf( unsigned char *buf, int len );
 extern const unsigned long int crc_tbl[256];
 extern const unsigned char crc_chop_tbl[256][4];
-extern int hexStringToHex(char* in, int length, unsigned char* out);
+extern int hexStringToArray(char* in, int in_length, unsigned char* out, int out_length);
 
 char usage[] =
 
 "\n"
-"  %s - (C) 2008-2014 Thomas d\'Otreppe\n"
+"  %s - (C) 2008-2015 Thomas d\'Otreppe\n"
 "  http://www.aircrack-ng.org\n"
 "\n"
 "  usage: tkiptun-ng <options> <replay interface>\n"
@@ -2655,7 +2655,10 @@ int do_attack_tkipchop( unsigned char* src_packet, int src_packet_len )
             errno = 0;
 
             if( send_packet( h80211, data_end -1 ) != 0 )
+            {
+                free(chopped);
                 return( 1 );
+            }
 
             if( errno != EAGAIN )
             {
@@ -2698,7 +2701,10 @@ int do_attack_tkipchop( unsigned char* src_packet, int src_packet_len )
 
         n = read_packet( h80211, sizeof( h80211 ), NULL );
 
-        if( n  < 0 ) return( 1 );
+        if( n  < 0 ){
+            free(chopped);
+            return( 1 );
+        }
         if( n == 0 ) continue;
 
         nb_pkt_read++;
@@ -2717,6 +2723,7 @@ int do_attack_tkipchop( unsigned char* src_packet, int src_packet_len )
                 "\n\nFailure: got several deauthentication packets "
                 "from the AP - you need to start the whole process "
                 "all over again, as the client got disconnected.\n\n" );
+                    free(chopped);
                     return( 1 );
                 }
 
@@ -2738,6 +2745,7 @@ int do_attack_tkipchop( unsigned char* src_packet, int src_packet_len )
                 printf( "\n\nFailure: the access point does not properly "
                         "discard frames with an\ninvalid ICV - try running "
                         "aireplay-ng in authenticated mode (-h) instead.\n\n" );
+                free(chopped);
                 return( 1 );
 //             }
         }
@@ -4037,7 +4045,12 @@ int main( int argc, char *argv[] )
             case 'P' :
 
                 memset(  opt.pmk, 0, sizeof( opt.pmk ) );
-                i = hexStringToHex(optarg, strlen(optarg), opt.pmk);
+                i = hexStringToArray(optarg, strlen(optarg), opt.pmk, 128);
+                if (i == -1)
+                {
+                	printf("Invalid value. It requires 128 bytes of PMK in hexadecimal.\n");
+                	return( 1 );
+                }
                 opt.got_pmk = 1;
                 break;
 
@@ -4057,7 +4070,7 @@ int main( int argc, char *argv[] )
             case 'M' :
 
                 ret = sscanf( optarg, "%d", &opt.mic_failure_interval );
-                if( opt.mic_failure_interval < 0 )
+                if( ret != 1 || opt.mic_failure_interval < 0 )
                 {
                     printf( "Invalid MIC error timeout. [>=0]\n" );
                     printf("\"%s --help\" for help.\n", argv[0]);
