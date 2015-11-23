@@ -49,6 +49,7 @@
 #include <signal.h>
 #include <string.h>
 #include <stdlib.h>
+#define _WITH_DPRINTF
 #include <stdio.h>
 #include <ctype.h>
 #include <errno.h>
@@ -73,8 +74,11 @@
 #include "osdep/common.h"
 #include "common.h"
 
+// libgcrypt thread callback definition for libgcrypt < 1.6.0
 #ifdef USE_GCRYPT
-	GCRY_THREAD_OPTION_PTHREAD_IMPL;
+	#if GCRYPT_VERSION_NUMBER < 0x010600
+		GCRY_THREAD_OPTION_PTHREAD_IMPL;
+	#endif
 #endif
 
 // in common.c
@@ -448,6 +452,13 @@ struct oui * load_oui_file(void) {
 				if (!(oui_ptr->next = (struct oui *)malloc(sizeof(struct oui)))) {
 					fclose(fp);
 					perror("malloc failed");
+					
+					while(oui_head != NULL)
+					{
+						oui_ptr = oui_head->next;
+						free(oui_head);
+						oui_head = oui_ptr;
+					}
 					return NULL;
 				}
 				oui_ptr = oui_ptr->next;
@@ -627,7 +638,7 @@ int check_shared_key(unsigned char *h80211, int caplen)
 char usage[] =
 
 "\n"
-"  %s - (C) 2006-2014 Thomas d\'Otreppe\n"
+"  %s - (C) 2006-2015 Thomas d\'Otreppe\n"
 "  http://www.aircrack-ng.org\n"
 "\n"
 "  usage: airodump-ng <options> <interface>[,<interface>,...]\n"
@@ -979,6 +990,10 @@ int dump_initialize( char *prefix, int ivs_only )
             perror( "fwrite(IVs file header) failed" );
             return( 1 );
         }
+    }
+    else
+    {
+        free( ofn );
     }
 
     return( 0 );
@@ -1438,16 +1453,6 @@ int dump_add_packet( unsigned char *h80211, int caplen, struct rx_info *ri, int 
     }
 
     ap_cur->nb_pkt++;
-
-    /* find wpa handshake */
-    if( h80211[0] == 0x10 )
-    {
-        /* reset the WPA handshake state */
-
-        if( st_cur != NULL && st_cur->wpa.state != 0xFF )
-            st_cur->wpa.state = 0;
-//        printf("initial auth %d\n", ap_cur->wpa_state);
-    }
 
     /* locate the station MAC in the 802.11 header */
 
@@ -4877,7 +4882,7 @@ static int json_get_value_for_name( const char *buffer, const char *name, char *
 
 	to_find_len = strlen(name) + 3;
 	to_find = (char*) malloc(to_find_len);
-	snprintf(to_find, sizeof(to_find), "\"%s\"", name);
+	snprintf(to_find, to_find_len, "\"%s\"", name);
 	cursor = strstr(buffer, to_find);
 	free(to_find);
 	if(cursor != NULL)
@@ -4957,7 +4962,7 @@ static int json_get_value_for_name( const char *buffer, const char *name, char *
 	return ret;
 }
 
-void gps_tracker( void )
+void gps_tracker(pid_t parent)
 {
 	ssize_t unused;
     int gpsd_sock;
@@ -4987,6 +4992,7 @@ void gps_tracker( void )
 
     if( connect( gpsd_sock, (struct sockaddr *) &gpsd_addr,
                  sizeof( gpsd_addr ) ) < 0 ) {
+        close(gpsd_sock);
         return;
     }
 
@@ -5172,7 +5178,7 @@ void gps_tracker( void )
         if (G.do_exit == 0)
 		{
 			unused = write( G.gc_pipe[1], G.gps_loc, sizeof( float ) * 5 );
-			kill( getppid(), SIGUSR2 );
+			kill( parent, SIGUSR2 );
 		}
     }
 }
@@ -5312,13 +5318,13 @@ int getfreqcount(int valid)
     return i;
 }
 
-void channel_hopper(struct wif *wi[], int if_num, int chan_count )
+void channel_hopper(struct wif *wi[], int if_num, int chan_count, pid_t parent)
 {
 	ssize_t unused;
     int ch, ch_idx = 0, card=0, chi=0, cai=0, j=0, k=0, first=1, again=1;
     int dropped=0;
 
-    while( getppid() != 1 )
+    while( 0 == kill(parent, 0) )
     {
         for( j = 0; j < if_num; j++ )
         {
@@ -5365,7 +5371,7 @@ void channel_hopper(struct wif *wi[], int if_num, int chan_count )
                     G.channel[card] = ch;
                     unused = write( G.cd_pipe[1], &card, sizeof(int) );
                     unused = write( G.ch_pipe[1], &ch, sizeof( int ) );
-                    kill( getppid(), SIGUSR1 );
+                    kill( parent, SIGUSR1 );
                     usleep(1000);
                 }
                 continue;
@@ -5382,7 +5388,7 @@ void channel_hopper(struct wif *wi[], int if_num, int chan_count )
                 unused = write( G.ch_pipe[1], &ch, sizeof( int ) );
                 if(G.active_scan_sim > 0)
                     send_probe_request(wi[card]);
-                kill( getppid(), SIGUSR1 );
+                kill( parent, SIGUSR1 );
                 usleep(1000);
             }
             else
@@ -5410,13 +5416,13 @@ void channel_hopper(struct wif *wi[], int if_num, int chan_count )
     exit( 0 );
 }
 
-void frequency_hopper(struct wif *wi[], int if_num, int chan_count )
+void frequency_hopper(struct wif *wi[], int if_num, int chan_count, pid_t parent)
 {
 	ssize_t unused;
     int ch, ch_idx = 0, card=0, chi=0, cai=0, j=0, k=0, first=1, again=1;
     int dropped=0;
 
-    while( getppid() != 1 )
+    while( 0 == kill(parent, 0) )
     {
         for( j = 0; j < if_num; j++ )
         {
@@ -5463,7 +5469,7 @@ void frequency_hopper(struct wif *wi[], int if_num, int chan_count )
                     G.frequency[card] = ch;
                     unused = write( G.cd_pipe[1], &card, sizeof(int) );
                     unused = write( G.ch_pipe[1], &ch, sizeof( int ) );
-                    kill( getppid(), SIGUSR1 );
+                    kill( parent, SIGUSR1 );
                     usleep(1000);
                 }
                 continue;
@@ -5478,7 +5484,7 @@ void frequency_hopper(struct wif *wi[], int if_num, int chan_count )
                 G.frequency[card] = ch;
                 unused = write( G.cd_pipe[1], &card, sizeof(int) );
                 unused = write( G.ch_pipe[1], &ch, sizeof( int ) );
-                kill( getppid(), SIGUSR1 );
+                kill( parent, SIGUSR1 );
                 usleep(1000);
             }
             else
@@ -6136,10 +6142,14 @@ int main( int argc, char *argv[] )
         {0,          0, 0,  0 }
     };
 
+    pid_t main_pid = getpid();
+
 
 #ifdef USE_GCRYPT
-    // Register callback functions to ensure proper locking in the sensitive parts of libgcrypt.
-    gcry_control (GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);
+    // Register callback functions to ensure proper locking in the sensitive parts of libgcrypt < 1.6.0
+    #if GCRYPT_VERSION_NUMBER < 0x010600
+        gcry_control (GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);
+    #endif
     // Disable secure memory.
     gcry_control (GCRYCTL_DISABLE_SECMEM, 0);
     // Tell Libgcrypt that initialization has completed.
@@ -6798,7 +6808,7 @@ usage:
 						perror("setuid");
 					}
 
-                    frequency_hopper(wi, G.num_cards, freq_count);
+                    frequency_hopper(wi, G.num_cards, freq_count, main_pid);
                     exit( 1 );
                 }
             }
@@ -6849,7 +6859,7 @@ usage:
 						perror("setuid");
 					}
 
-                    channel_hopper(wi, G.num_cards, chan_count);
+                    channel_hopper(wi, G.num_cards, chan_count, main_pid);
                     exit( 1 );
                 }
             }
@@ -6938,7 +6948,7 @@ usage:
 
         if( ! fork() )
         {
-            gps_tracker();
+            gps_tracker(main_pid);
             exit( 1 );
         }
 
@@ -6958,7 +6968,13 @@ usage:
     G.batt     = getBatteryString();
 
     G.elapsed_time = (char *) calloc( 1, 4 );
+    if(G.elapsed_time == NULL)
+    {
+        perror( "Error allocating memory" );
+        return 1;
+    }
     strncpy(G.elapsed_time, "0 s", 4 - 1);
+    G.elapsed_time[strlen(G.elapsed_time)] = 0;
 
 	/* Create start time string for kismet netxml file */
     G.airodump_start_time = (char *) calloc( 1, 1000 * sizeof(char) );
