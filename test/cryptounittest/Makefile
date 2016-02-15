@@ -1,7 +1,15 @@
 AC_ROOT         = ../..
 SRC_DIR		= $(AC_ROOT)/src
 include $(AC_ROOT)/common.mak
-CFLAGS          += -I$(SRC_DIR) -I$(SRC_DIR)/include
+CFLAGS          += -I$(SRC_DIR) -I$(SRC_DIR)/include $(COMMON_CFLAGS)
+
+ifeq ($(subst TRUE,true,$(filter TRUE true,$(simdcore) $(SIMDCORE))),true)
+	SSEO_INT	= $(AC_ROOT)/src/simd-intrinsics.o $(AC_ROOT)/src/memory.o $(AC_ROOT)/src/wpapsk.o
+else
+ifeq ($(subst TRUE,true,$(filter TRUE true,$(newsse) $(NEWSSE))),true)
+	SSEO_INT	= $(AC_ROOT)/src/sse-intrinsics.o $(AC_ROOT)/src/memory.o $(AC_ROOT)/src/wpapsk.o
+endif
+endif
 
 ifeq ($(subst TRUE,true,$(filter TRUE true,$(gcrypt) $(GCRYPT))),true)
 	LIBSSL          =  -lgcrypt $(LDFLAGS)
@@ -12,9 +20,9 @@ endif
 
 all:	check
 
-SRC_CRYPTO	  = $(AC_ROOT)/src/crypto.c $(AC_ROOT)/src/sha1-git.c
+SRC_CRYPTO	  = $(AC_ROOT)/src/crypto.c $(AC_ROOT)/src/sha1-git.c $(SSEO_INT) $(AC_ROOT)/src/cpuid.o $(AC_ROOT)/src/common.o
 
-TESTFILES        = test-encrypt-wep$(EXE) test-calc-pmk$(EXE) test-calc-mic$(EXE) test-calc-ptk$(EX) test-encrypt-ccmp$(EXE) test-decrypt-ccmp$(EXE) test-calc-4pmk$(EXE)
+TESTFILES        = test-encrypt-wep$(EXE) test-calc-pmk$(EXE) test-calc-mic$(EXE) test-calc-ptk$(EXE) test-encrypt-ccmp$(EXE) test-decrypt-ccmp$(EXE) test-calc-4pmk$(EXE)
 
 OBJS_TEST_EWEP  = test-encrypt-wep.c $(SRC_CRYPTO)
 OBJS_TEST_CPMK  = test-calc-pmk.c $(SRC_CRYPTO)

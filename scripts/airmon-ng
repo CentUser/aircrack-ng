@@ -71,8 +71,9 @@ if [ ! -x "$(command -v uname 2>&1)" ]; then
 	printf "How in the world do you not have uname installed?\n"
 	printf "Please select a linux distro which has at least basic functionality (or install uname).\n"
 	exit 1
-#else
-#	#write something in here to test uname for Darwin/Linux and set a variable
+else
+        OS=$(uname -s)
+	#Recognized values are Linux and Darwin
 fi
 
 if [ ! -x "$(command -v ip 2>&1)" ] && [ ! -x "$(command -v ifconfig 2>&1)" ]; then
@@ -409,29 +410,34 @@ startMac80211Iface() {
 		done
 	fi
 	#we didn't bail means we need a monitor interface
-	if [ -e /sys/class/net/${1}mon ]; then
-		printf "\nYou already have a ${1}mon device but it is NOT in monitor mode."
-		printf "\nWhatever you did, don't do it again."
-		printf "\nPlease run \"iw ${1}mon del\" before attempting to continue\n"
-		exit 1
-	fi
-	#we didn't bail means our target interface is available
-	setLink ${1} down
-	IW_ERROR="$(iw phy ${PHYDEV} interface add ${1}mon type monitor 2>&1)"
-	if [ -z "${IW_ERROR}" ]; then
-		sleep 1
-		if [ "$(cat /sys/class/ieee80211/${PHYDEV}/device/net/${1}mon/type)" = "803" ]; then
-			setChannelMac80211 ${1}mon
-		else
-			printf "\nNewly created monitor mode interface ${1}mon is *NOT* in monitor mode.\n"
-			printf "Removing non-monitor ${1}mon interface...\n"
-			stopMac80211Iface ${1}mon abort
+        if [ ${#1} -gt 12 ]; then
+		printf "Interface ${#1}mon is too long for linux so it will be renamed to the old style (wlan#) name.\n"
+		findFreeInterface monitor
+	else
+		if [ -e /sys/class/net/${1}mon ]; then
+			printf "\nYou already have a ${1}mon device but it is NOT in monitor mode."
+			printf "\nWhatever you did, don't do it again."
+			printf "\nPlease run \"iw ${1}mon del\" before attempting to continue\n"
 			exit 1
 		fi
-		printf "\n\t\t(mac80211 monitor mode vif enabled for [${PHYDEV}]${1} on [${PHYDEV}]${1}mon)\n"
-	else
-		printf "\n\nERROR adding monitor mode interface: ${IW_ERROR}\n"
-		exit 1
+		#we didn't bail means our target interface is available
+		setLink ${1} down
+		IW_ERROR="$(iw phy ${PHYDEV} interface add ${1}mon type monitor 2>&1)"
+		if [ -z "${IW_ERROR}" ]; then
+			sleep 1
+			if [ "$(cat /sys/class/ieee80211/${PHYDEV}/device/net/${1}mon/type)" = "803" ]; then
+				setChannelMac80211 ${1}mon
+			else
+				printf "\nNewly created monitor mode interface ${1}mon is *NOT* in monitor mode.\n"
+				printf "Removing non-monitor ${1}mon interface...\n"
+				stopMac80211Iface ${1}mon abort
+				exit 1
+			fi
+			printf "\n\t\t(mac80211 monitor mode vif enabled for [${PHYDEV}]${1} on [${PHYDEV}]${1}mon)\n"
+		else
+			printf "\n\nERROR adding monitor mode interface: ${IW_ERROR}\n"
+			exit 1
+		fi
 	fi
 	if [ "${ELITE}" = "1" ]; then
 		#check if $1 is still down, warn if not
@@ -472,7 +478,11 @@ startwlIface() {
 
 #startDarwinIface() {
 #	if [ -x /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport ]; then
-#		/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport $1 sniff
+#		if [ -n "${CH}" ] && [ ${CH} -lt 220 ]; then
+#			/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport $1 sniff ${CH}
+#		else
+#			printf "Channel is set to none channel value of ${CH}
+#		fi
 #	fi
 #}
 
@@ -788,7 +798,33 @@ getChipset() {
 			if [ -f /sys/class/net/$1/device/vendor ] && [ -f /sys/class/net/$1/device/device ]; then
 				DEVICEID="$(cat /sys/class/net/$1/device/vendor):$(cat /sys/class/net/$1/device/device)"
 			fi
-			CHIPSET="unable to detect for sdio $DEVICEID"
+			if [ "${DEVICEID}" = '0x02d0:0x4330' ]; then
+				CHIPSET='Broadcom 4330'
+			elif [ "${DEVICEID}" = '0x02d0:0x4329' ]; then
+				CHIPSET='Broadcom 4329'
+			elif [ "${DEVICEID}" = '0x02d0:0x4334' ]; then
+				CHIPSET='Broadcom 4334'
+			elif [ "${DEVICEID}" = '0x02d0:0xa94c' ]; then
+				CHIPSET='Broadcom 43340'
+			elif [ "${DEVICEID}" = '0x02d0:0xa94d' ]; then
+				CHIPSET='Broadcom 43341'
+			elif [ "${DEVICEID}" = '0x02d0:0x4324' ]; then
+				CHIPSET='Broadcom 43241'
+			elif [ "${DEVICEID}" = '0x02d0:0x4335' ]; then
+				CHIPSET='Broadcom 4335/4339'
+			elif [ "${DEVICEID}" = '0x02d0:0xa962' ]; then
+				CHIPSET='Broadcom 43362'
+			elif [ "${DEVICEID}" = '0x02d0:0xa9a6' ]; then
+				CHIPSET='Broadcom 43430'
+			elif [ "${DEVICEID}" = '0x02d0:0x4345' ]; then
+				CHIPSET='Broadcom 43455'
+			elif [ "${DEVICEID}" = '0x02d0:0x4354' ]; then
+				CHIPSET='Broadcom 4354'
+			elif [ "${DEVICEID}" = '0x02d0:0xa887' ]; then
+				CHIPSET='Broadcom 43143'
+			else
+				CHIPSET="unable to detect for sdio $DEVICEID"
+			fi
 		else
 			CHIPSET="Not pci, usb, or sdio"
 		fi
@@ -977,7 +1013,7 @@ scanProcesses() {
 	if [ ${match} -gt 0 ] && [ "${1}" != "kill" ]; then
 		printf "Found $match processes that could cause trouble.\n"
 		printf "If airodump-ng, aireplay-ng or airtun-ng stops working after\n"
-		printf "a short period of time, you may want to kill (some of) them!\n\n"
+		printf "a short period of time, you may want to run 'airmon-ng check kill'\n\n"
 	else
 		if [ "${1}" != "kill" ] && [ -n "${1}" ]; then
 			printf "No interfering processes found\n"

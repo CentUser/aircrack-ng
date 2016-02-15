@@ -1,7 +1,7 @@
 /*
  *  pcap-compatible 802.11 packet sniffer
  *
- *  Copyright (C) 2006-2015 Thomas d'Otreppe <tdotreppe@aircrack-ng.org>
+ *  Copyright (C) 2006-2016 Thomas d'Otreppe <tdotreppe@aircrack-ng.org>
  *  Copyright (C) 2004, 2005 Christophe Devine
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -126,7 +126,7 @@ void textcolor(int attr, int fg, int bg)
 {	char command[13];
 
 	/* Command is the control command to the terminal */
-	sprintf(command, "%c[%d;%d;%dm", 0x1B, attr, fg + 30, bg + 40);
+	snprintf(command, sizeof(command), "%c[%d;%d;%dm", 0x1B, attr, fg + 30, bg + 40);
 	fprintf(stderr, "%s", command);
 	fflush(stderr);
 }
@@ -135,7 +135,7 @@ void textcolor_fg(int fg)
 {	char command[13];
 
 	/* Command is the control command to the terminal */
-	sprintf(command, "\033[%dm", fg + 30);
+	snprintf(command, sizeof(command), "\033[%dm", fg + 30);
 	fprintf(stderr, "%s", command);
 	fflush(stderr);
 }
@@ -144,7 +144,7 @@ void textcolor_bg(int bg)
 {	char command[13];
 
 	/* Command is the control command to the terminal */
-	sprintf(command, "\033[%dm", bg + 40);
+	snprintf(command, sizeof(command), "\033[%dm", bg + 40);
 	fprintf(stderr, "%s", command);
 	fflush(stderr);
 }
@@ -153,7 +153,7 @@ void textstyle(int attr)
 {	char command[13];
 
 	/* Command is the control command to the terminal */
-	sprintf(command, "\033[%im", attr);
+	snprintf(command, sizeof(command), "\033[%im", attr);
 	fprintf(stderr, "%s", command);
 	fflush(stderr);
 }
@@ -425,7 +425,7 @@ struct oui * load_oui_file(void) {
 	unsigned char b[2];
 	unsigned char c[2];
 	struct oui *oui_ptr = NULL, *oui_head = NULL;
-	
+
 	fp = open_oui_file();
 	if (!fp) {
 		return NULL;
@@ -452,7 +452,7 @@ struct oui * load_oui_file(void) {
 				if (!(oui_ptr->next = (struct oui *)malloc(sizeof(struct oui)))) {
 					fclose(fp);
 					perror("malloc failed");
-					
+
 					while(oui_head != NULL)
 					{
 						oui_ptr = oui_head->next;
@@ -782,7 +782,12 @@ void update_rx_quality( )
                     ap_cur->fmiss += missed_frames;
                 }
 
-                ap_cur->rx_quality = ((float)((float)ap_cur->fcapt / ((float)ap_cur->fcapt + (float)ap_cur->fmiss)) * 100.0);
+                ap_cur->rx_quality = ((float)((float)ap_cur->fcapt / ((float)ap_cur->fcapt + (float)ap_cur->fmiss)) *
+#if defined(__x86_64__) && defined(__CYGWIN__)
+			(0.0f + 100));
+#else
+			100.0f);
+#endif
             }
             else ap_cur->rx_quality = 0; /* no packets -> zero quality */
 
@@ -1015,7 +1020,11 @@ int update_dataps()
     {
         sec = (tv.tv_sec - ap_cur->tv.tv_sec);
         usec = (tv.tv_usec - ap_cur->tv.tv_usec);
-        pause = (((float)(sec*1000000.0f + usec))/(1000000.0f));
+#if defined(__x86_64__) && defined(__CYGWIN__)
+        pause = (((float)(sec*(0.0f + 1000000) + usec))/((0.0f + 1000000)));
+#else
+	pause = (((float)(sec*1000000.0f + usec))/(1000000.0f));
+#endif
         if( pause > 2.0f )
         {
             diff = ap_cur->nb_data - ap_cur->nb_data_old;
@@ -1033,7 +1042,11 @@ int update_dataps()
     {
         sec = (tv.tv_sec - na_cur->tv.tv_sec);
         usec = (tv.tv_usec - na_cur->tv.tv_usec);
-        pause = (((float)(sec*1000000.0f + usec))/(1000000.0f));
+#if defined(__x86_64__) && defined(__CYGWIN__)
+        pause = (((float)(sec*(0.0f + 1000000) + usec))/((0.0f + 1000000)));
+#else
+	pause = (((float)(sec*1000000.0f + usec))/(1000000.0f));
+#endif
         if( pause > 2.0f )
         {
             diff = na_cur->ack - na_cur->ack_old;
@@ -3903,15 +3916,13 @@ int dump_write_csv( void )
                      ap_cur->bssid[2], ap_cur->bssid[3],
                      ap_cur->bssid[4], ap_cur->bssid[5] );
 
-	
-
 	probes_written = 0;
         for( i = 0, n = 0; i < NB_PRB; i++ )
         {
             if( st_cur->ssid_length[i] == 0 )
                 continue;
 
-	    temp = format_text_for_csv(st_cur->probes[i], st_cur->ssid_length[i]);
+	    temp = format_text_for_csv((unsigned char *)st_cur->probes[i], st_cur->ssid_length[i]);
 
 	    if( probes_written == 0)
 	    {
@@ -4126,12 +4137,12 @@ int dump_write_kismet_netxml_client_info(struct ST_info *client, int client_no)
 					"\t\t\t\t<max-rate>54.000000</max-rate>\n"
 					"\t\t\t\t<packets>1</packets>\n"
 					"\t\t\t\t<encryption>None</encryption>\n");
-		essid = sanitize_xml(client->probes[i], client->ssid_length[i]);
+		essid = sanitize_xml((unsigned char *)client->probes[i], client->ssid_length[i]);
 		if (essid != NULL) {
 			fprintf( G.f_kis_xml, "\t\t\t\t<ssid>%s</ssid>\n", essid);
 			free(essid);
 		}
-		
+
 		fprintf( G.f_kis_xml, "\t\t\t</SSID>\n");
 
 		++nb_probes_written;
@@ -4155,7 +4166,12 @@ int dump_write_kismet_netxml_client_info(struct ST_info *client, int client_no)
 
 	/* Rate: inaccurate because it's the latest rate seen */
 	client_max_rate = ( client->rate_from > client->rate_to ) ? client->rate_from : client->rate_to ;
-	fprintf(G.f_kis_xml, "\t\t\t<maxseenrate>%.6f</maxseenrate>\n", client_max_rate / 1000000.0 );
+	fprintf(G.f_kis_xml, "\t\t\t<maxseenrate>%.6f</maxseenrate>\n", client_max_rate /
+#if defined(__x86_64__) && defined(__CYGWIN__)
+		(0.0f + 1000000) );
+#else
+		1000000.0 );
+#endif
 
 	/* Those 2 lines always stays the same */
 	fprintf(G.f_kis_xml, "\t\t\t<carrier>IEEE 802.11b+</carrier>\n");
@@ -4457,10 +4473,10 @@ int dump_write_kismet_netxml( void )
 			/* Write new network information */
 			strncpy(first_time, ctime(&st_cur->tinit), TIME_STR_LENGTH - 1);
 			first_time[strlen(first_time) - 1] = 0; // remove new line
-			
+
 			strncpy(last_time, ctime(&st_cur->tlast), TIME_STR_LENGTH - 1);
 			last_time[strlen(last_time) - 1] = 0; // remove new line
-			
+
 			fprintf(G.f_kis_xml, "\t<wireless-network number=\"%d\" type=\"probe\" ",
 				network_number);
 			fprintf(G.f_kis_xml, "first-time=\"%s\" last-time=\"%s\">\n", first_time, last_time);
@@ -4488,7 +4504,12 @@ int dump_write_kismet_netxml( void )
 
 			/* Rate: inaccurate because it's the latest rate seen */
 			client_max_rate = ( st_cur->rate_from > st_cur->rate_to ) ? st_cur->rate_from : st_cur->rate_to ;
-			fprintf(G.f_kis_xml, "\t\t<maxseenrate>%.6f</maxseenrate>\n", client_max_rate / 1000000.0 );
+			fprintf(G.f_kis_xml, "\t\t<maxseenrate>%.6f</maxseenrate>\n", client_max_rate /
+#if defined(__x86_64__) && defined(__CYGWIN__)
+				(0.0f + 1000000) );
+#else
+				1000000.0 );
+#endif
 
 			fprintf(G.f_kis_xml, "\t\t<carrier>IEEE 802.11b+</carrier>\n");
 			fprintf(G.f_kis_xml, "\t\t<encoding>CCK</encoding>\n");
@@ -4506,7 +4527,7 @@ int dump_write_kismet_netxml( void )
 
 			/* XXX: What does that field mean? Is it the total size of data? */
 			fprintf(G.f_kis_xml, "\t\t<datasize>0</datasize>\n");
-	
+
 			/* SNR information */
 			average_power = (st_cur->power == -1) ? 0 : st_cur->power;
 			fprintf(G.f_kis_xml, "\t\t<snr-info>\n"
@@ -4779,10 +4800,10 @@ int dump_write_kismet_csv( void )
 }
 
 /* See if a string contains a character in the first "n" bytes.
- * 
+ *
  * Returns a pointer to the first occurrence of the character, or NULL
  * if the character is not present in the string.
- * 
+ *
  * Breaks the str* naming convention to avoid a name collision if we're
  * compiling on a system that has strnchr()
  */
@@ -4803,10 +4824,10 @@ static char *strchr_n(char *str, int c, size_t n)
 }
 
 /* Read at least one full line from the network.
- * 
+ *
  * Returns the amount of data in the buffer on success, 0 on connection
  * closed, or a negative value on error.
- * 
+ *
  * If the return value is >0, the buffer contains at least one newline
  * character.  If the return value is <= 0, the contents of the buffer
  * are undefined.
@@ -4835,14 +4856,14 @@ static int read_line(int sock, char *buffer, int pos, int size)
 	{
 		return -1;
 	}
-	
+
 	return pos;
 }
 
-/* Remove a newline-terminated block of data from a buffer, replacing 
+/* Remove a newline-terminated block of data from a buffer, replacing
  * the newline with a '\0'.
- * 
- * Returns the number of characters left in the buffer, or -1 if the 
+ *
+ * Returns the number of characters left in the buffer, or -1 if the
  * buffer did not contain a newline.
  */
 static int get_line_from_buffer(char *buffer, int size, char *line)
@@ -4856,16 +4877,16 @@ static int get_line_from_buffer(char *buffer, int size, char *line)
 		memmove(buffer, cursor, size - (strlen(line) + 1));
 		return size - (strlen(line) + 1);
 	}
-	
+
 	return -1;
-} 
+}
 
 /* Extract a name:value pair from a null-terminated line of JSON.
- * 
- * Returns 1 if the name was found, or 0 otherwise. 
- * 
+ *
+ * Returns 1 if the name was found, or 0 otherwise.
+ *
  * The string in "value" is null-terminated if the name was found.  If
- * the name was not found, the contents of "value" are undefined. 
+ * the name was not found, the contents of "value" are undefined.
  */
 static int json_get_value_for_name( const char *buffer, const char *name, char *value )
 {
@@ -4874,7 +4895,7 @@ static int json_get_value_for_name( const char *buffer, const char *name, char *
 	size_t to_find_len;
 	char *vcursor = value;
 	int ret = 0;
-	
+
 	if (buffer == NULL || strlen(buffer) == 0 || name == NULL || strlen(name) == 0 || value == NULL)
 	{
 		return 0;
@@ -4895,7 +4916,7 @@ static int json_get_value_for_name( const char *buffer, const char *name, char *
 		if(*cursor != '\0')
 		{
 			cursor++;
-			while(isspace(*cursor) && *cursor != '\0')
+			while(isspace((int)(*cursor)) && *cursor != '\0')
 			{
 				cursor++;
 			}
@@ -4949,7 +4970,7 @@ static int json_get_value_for_name( const char *buffer, const char *name, char *
 		else
 		{
 			/* Number, supposedly.  Copy as-is. */
-			while(*cursor != ',' && *cursor != '}' && !isspace(*cursor))
+			while(*cursor != ',' && *cursor != '}' && !isspace((int)(*cursor)))
 			{
 				*vcursor = *cursor;
 				cursor++; vcursor++;
@@ -5004,18 +5025,18 @@ void gps_tracker(pid_t parent)
     timeout.tv_sec = 1;
     timeout.tv_usec = 0;
     is_json = select(gpsd_sock + 1, &read_fd, NULL, NULL, &timeout);
-    
+
     if (is_json > 0) {
 		/* Probably JSON.  Read the first line and verify it's a version of the protocol we speak. */
 
     	if((pos = read_line(gpsd_sock, buffer, 0, sizeof(buffer))) <= 0)
     		return;
-    	
+
     	pos = get_line_from_buffer(buffer, pos, line);
 
     	is_json = (json_get_value_for_name(line, "class", data) &&
     			   strncmp(data, "VERSION", 7) == 0);
-		
+
     	if (is_json) {
 			/* Verify it's a version of the protocol we speak */
 			if(json_get_value_for_name(line, "proto_major", data) && data[0] != '3')
@@ -5023,7 +5044,7 @@ void gps_tracker(pid_t parent)
 				/* It's an unknown version of the protocol.  Bail out. */
 				return;
 			}
-			
+
 			// Send ?WATCH={"json":true};
 			memset(line, 0, sizeof(line));
 			strcpy(line, "?WATCH={\"json\":true};\n");
@@ -5186,54 +5207,63 @@ void gps_tracker(pid_t parent)
 void sighandler( int signum)
 {
 	ssize_t unused;
-    int card=0;
+	int card = 0;
+	signal( signum, sighandler );
 
-    signal( signum, sighandler );
-
-    if( signum == SIGUSR1 )
-    {
+	if( signum == SIGUSR1 )
+	{
 		unused = read( G.cd_pipe[0], &card, sizeof(int) );
-        if(G.freqoption)
-            unused = read( G.ch_pipe[0], &(G.frequency[card]), sizeof( int ) );
-        else
-            unused = read( G.ch_pipe[0], &(G.channel[card]), sizeof( int ) );
-    }
 
-    if( signum == SIGUSR2 )
-        unused = read( G.gc_pipe[0], &G.gps_loc, sizeof( float ) * 5 );
+		if(G.freqoption)
+			unused = read( G.ch_pipe[0], &(G.frequency[card]), sizeof( int ) );
+		else
+			unused = read( G.ch_pipe[0], &(G.channel[card]), sizeof( int ) );
+	}
 
-    if( signum == SIGINT || signum == SIGTERM )
-    {
-	reset_term();
-        alarm( 1 );
-        G.do_exit = 1;
-        signal( SIGALRM, sighandler );
-        dprintf( STDOUT_FILENO, "\n" );
-    }
+	if( signum == SIGUSR2 )
+		unused = read( G.gc_pipe[0], &G.gps_loc, sizeof( float ) * 5 );
 
-    if( signum == SIGSEGV )
-    {
-        fprintf( stderr, "Caught signal 11 (SIGSEGV). Please"
+	if( signum == SIGINT || signum == SIGTERM )
+	{
+		reset_term();
+		alarm( 1 );
+		G.do_exit = 1;
+		signal( SIGALRM, sighandler );
+#if defined(__sun__)
+		fprintf(stdout, "\n" );
+#else
+		dprintf( STDOUT_FILENO, "\n" );
+#endif
+	}
+
+	if( signum == SIGSEGV )
+	{
+		fprintf( stderr, "Caught signal 11 (SIGSEGV). Please"
+				" contact the author!\33[?25h\n\n" );
+		fflush( stdout );
+		exit( 1 );
+	}
+
+	if( signum == SIGALRM )
+	{
+#if defined(__sun__)
+		fprintf(stdout,
+#else
+		dprintf( STDERR_FILENO,
+#endif
+			 "Caught signal 14 (SIGALRM). Please"
                          " contact the author!\33[?25h\n\n" );
-        fflush( stdout );
-        exit( 1 );
-    }
+		_exit( 1 );
+	}
 
-    if( signum == SIGALRM )
-    {
-        dprintf( STDERR_FILENO, "Caught signal 14 (SIGALRM). Please"
-                         " contact the author!\33[?25h\n\n" );
-        _exit( 1 );
-    }
+	if( signum == SIGCHLD )
+		wait( NULL );
 
-    if( signum == SIGCHLD )
-        wait( NULL );
-
-    if( signum == SIGWINCH )
-    {
-        fprintf( stderr, "\33[2J" );
-        fflush( stdout );
-    }
+	if( signum == SIGWINCH )
+	{
+		fprintf( stderr, "\33[2J" );
+		fflush( stdout );
+	}
 }
 
 int send_probe_request(struct wif *wi)
@@ -6337,15 +6367,15 @@ int main( int argc, char *argv[] )
             		printf("Error: Write interval is not a number (>0). Aborting.\n");
             		exit ( 1 );
             	}
-            	
+
             	G.file_write_interval = atoi(optarg);
-            	
+
             	if (G.file_write_interval <= 0) {
             		printf("Error: Write interval must be greater than 0. Aborting.\n");
             		exit ( 1 );
             	}
             	break;
-                
+
 			case 'E':
 				G.detect_anomaly = 1;
 				break;
@@ -7211,8 +7241,8 @@ usage:
 
             if( ioctl( 0, TIOCGWINSZ, &(G.ws) ) < 0 )
             {
-                G.ws.ws_row = 25;
-                G.ws.ws_col = 80;
+                G.ws.ws_row = 50;
+                G.ws.ws_col = 120;
             }
 
             if( G.ws.ws_col <   1 ) G.ws.ws_col =   1;

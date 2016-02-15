@@ -1,7 +1,7 @@
 /*
  *  Common functions for all aircrack-ng tools
  *
- *  Copyright (C) 2006-2015 Thomas d'Otreppe <tdotreppe@aircrack-ng.org>
+ *  Copyright (C) 2006-2016 Thomas d'Otreppe <tdotreppe@aircrack-ng.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,9 +41,98 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <ctype.h>
-
+#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
+#include <sys/sysctl.h>
+#include <sys/user.h>
+#endif
+#if (defined(_WIN32) || defined(_WIN64)) || defined(__CYGWIN32__)
+#include <io.h>
+#include <windows.h>
+#include <errno.h>
+#endif
 #define isHex(c) (hexToInt(c) != -1)
 #define HEX_BASE 16
+
+/*
+ * The following function comes from jumbo.c from JTR.
+ * It has the following license:
+ *
+ * This file is Copyright (c) 2013-2014 magnum, Lukasz and JimF,
+ * and is hereby released to the general public under the
+following terms:
+ * Redistribution and use in source and binary forms, with or
+without
+ * modifications, are permitted.
+*/
+#if defined (__CYGWIN32__) && !defined(__CYGWIN64__)
+int fseeko64(FILE* fp, int64_t offset, int whence) {
+	fpos_t pos;
+
+	if (whence == SEEK_CUR) {
+		if (fgetpos (fp, &pos))
+			return (-1);
+
+		pos += (fpos_t) offset;
+	} else if (whence == SEEK_END) {
+		/* If writing, we need to flush before getting file length. */
+		long long size;
+
+		fflush (fp);
+		size = 0;
+
+		GetFileSizeEx((HANDLE)_get_osfhandle(fileno(fp)), (PLARGE_INTEGER)&size);
+		pos = (fpos_t) (size + offset);
+	} else if (whence == SEEK_SET)
+		pos = (fpos_t) offset;
+	else {
+		errno = EINVAL;
+		return (-1);
+	}
+
+	return fsetpos (fp, &pos);
+}
+
+int64_t ftello64(FILE * fp) {
+	fpos_t pos;
+
+	if (fgetpos(fp, &pos))
+		return  -1LL;
+
+	return (int64_t)pos;
+}
+#endif
+
+/*
+ * Print the time and percentage in readable format
+ */
+void calctime(time_t t, float perc) {
+	int days = 0, hours = 0, mins = 0, secs = 0, remain = 0, printed = 0;
+	char buf[8];
+
+	days    = t / 86400;
+	remain  = t % 86400;
+
+	hours   = remain / 3600;
+	remain  = remain % 3600;
+
+	mins    = remain / 60;
+	secs    = remain % 60;
+
+	if (days)
+		printed += printf("%d day%s, ", days, (days>1?"s":""));
+
+	if (hours)
+		printed += printf("%d hour%s, ", hours, (hours>1?"s":""));
+
+	if (mins)
+		printed += printf("%d minute%s, ", mins, (mins>1?"s":""));
+
+	snprintf(buf, sizeof(buf), "%3.2f%%", perc);
+
+	printed += printf("%d second%s", secs, (secs!=1?"s":""));
+
+	printf("%*s %s\n", (int)(47-(printed+strlen(buf)%5))," ", buf);
+}
 
 int is_string_number(const char * str)
 {
@@ -51,28 +140,44 @@ int is_string_number(const char * str)
 	if (str == NULL) {
 		return 0;
 	}
-	
+
 	if (*str != '-' && !(isdigit((int)(*str)))) {
 		return 0;
 	}
-	
+
 	for (i = 1; str[i] != 0; i++) {
 		if (!isdigit((int)(str[i]))) {
 			return 0;
 		}
 	}
-	
+
 	return 1;
 }
 
 int get_ram_size(void) {
+	int ret = -1;
+#if defined(__FreeBSD__)
+	int mib[] = { CTL_HW, HW_PHYSMEM };
+	size_t len;
+	unsigned long physmem;
+
+	len	= sizeof(physmem);
+
+	if (!sysctl(mib, 2, &physmem, &len, NULL, 0))
+		ret = (physmem/1024);	// Linux returns memory size in kB, so we want to as well.
+#elif defined(_WIN32) || defined(_WIN64)
+	MEMORYSTATUSEX statex;
+	statex.dwLength = sizeof(statex);
+
+	GlobalMemoryStatusEx(&statex);
+	ret = (int)(statex.ullTotalPhys/1024);
+#else
 	FILE *fp;
 	char str[256];
 	int val = 0;
-	int ret = -1;
 
 	if (!(fp = fopen("/proc/meminfo", "r"))) {
-		perror("fopen fails");
+		perror("fopen fails on /proc/meminfo");
 		return ret;
 	}
 
@@ -84,6 +189,7 @@ int get_ram_size(void) {
 	}
 
 	fclose(fp);
+#endif
 	return ret;
 }
 
@@ -128,43 +234,66 @@ char * getVersion(char * progname, int maj, int min, int submin, int svnrev, int
 // Return the number of cpu. If detection fails, it will return -1;
 int get_nb_cpus()
 {
-		// Optmization for windows: use GetSystemInfo()
-        char * s, * pos;
-        FILE * f;
         int number = -1;
 
-		// Reading /proc/cpuinfo is more reliable on current CPUs,
-		// so put it first and try the old method if this one fails
+#if defined(_WIN32) || defined(_WIN64)
+	SYSTEM_INFO sysinfo = {0};
+
+	GetSystemInfo(&sysinfo);
+
+	number = sysinfo.dwNumberOfProcessors;
+#elif defined(__linux__)
+        char * s, * pos;
+        FILE * f;
+	// Reading /proc/cpuinfo is more reliable on current CPUs,
+	// so put it first and try the old method if this one fails
         f = fopen("/proc/cpuinfo", "r");
+
         if (f != NULL) {
-				s = (char *)calloc(1, 81);
-				if (s != NULL) {
-					// Get the latest value of "processor" element
-					// and increment it by 1 and it that value
-					// will be the number of CPU.
-					number = -2;
-					while (fgets(s, 80, f) != NULL) {
-							pos = strstr(s, "processor");
-							if (pos == s) {
-									pos = strchr(s, ':');
-									number = atoi(pos + 1);
-							}
-					}
-					++number;
-					free(s);
+		s = (char *)calloc(1, 81);
+
+		if (s != NULL) {
+			// Get the latest value of "processor" element
+			// and increment it by 1 and it that value
+			// will be the number of CPU.
+			number = -2;
+
+			while (fgets(s, 80, f) != NULL) {
+				pos = strstr(s, "processor");
+
+				if (pos == s) {
+					pos = strchr(s, ':');
+					number = atoi(pos + 1);
 				}
-				fclose(f);
+			}
+
+			++number;
+			free(s);
+		}
+
+		fclose(f);
         }
+#elif defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
+// Not sure about defined(__DragonFly__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__APPLE__)
+	int mib[] = { CTL_HW, HW_NCPU };
+	size_t len;
+	unsigned long nbcpu;
+
+	len     = sizeof(nbcpu);
+
+	if (!sysctl(mib, 2, &nbcpu, &len, NULL, 0)) {
+		number = (int)nbcpu;
+	}
+#endif
 
         #ifdef _SC_NPROCESSORS_ONLN
         // Try the usual method if _SC_NPROCESSORS_ONLN exist
         if (number == -1) {
-
-			number   = sysconf(_SC_NPROCESSORS_ONLN);
-			/* Fails on some archs */
-			if (number < 1) {
-				number = -1;
-			}
+		number   = sysconf(_SC_NPROCESSORS_ONLN);
+		/* Fails on some archs */
+		if (number < 1) {
+			number = -1;
+		}
         }
         #endif
 
@@ -299,7 +428,7 @@ int hexStringToArray(char* in, int in_length, unsigned char* out, int out_length
 
     if (in_length < 2 || out_length < (in_length / 3) + 1 || input == NULL || output == NULL)
     	return -1;
-    
+
     out_pos = 0;
     for (i = 0; i < in_length - 1; ++i)
     {
