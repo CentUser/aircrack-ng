@@ -379,6 +379,7 @@ static void do_wait(int UNUSED(x))
 	wait(NULL);
 }
 
+#if 0
 static inline void hexdump(void *p, int len)
 {
 	unsigned char *x = p;
@@ -388,6 +389,7 @@ static inline void hexdump(void *p, int len)
 
 	printf("\n");
 }
+#endif
 
 static void *xmalloc(size_t sz)
 {
@@ -414,13 +416,14 @@ static int time_diff(struct timeval *past, struct timeval *now)
 	return n - p;
 }
 
+#if 0
 static inline void timer_print(void)
 {
 	int i = 0;
 	struct timer *t = _state.s_timers.t_next;
 
 	printf(
-			#ifndef __APPLE_CC__
+			#if !defined( __APPLE_CC__) && !defined(__NetBSD__) && !defined(__OpenBSD__)
 			"\nNow %lu.%lu\n",
 			#else
 			"\nNow %lu.%d\n",
@@ -430,7 +433,7 @@ static inline void timer_print(void)
 	while (t) {
 
 		printf(
-				#ifndef __APPLE_CC__
+				#if !defined( __APPLE_CC__) && !defined(__NetBSD__) && !defined(__OpenBSD__)
 				"%d) %lu.%lu %p(%p)\n",
 				#else
 				"%d) %lu.%d %p(%p)\n",
@@ -444,6 +447,7 @@ static inline void timer_print(void)
 		t = t->t_next;
 	}
 }
+#endif
 
 static void timer_next(struct timeval *tv)
 {
@@ -3103,7 +3107,7 @@ static void print_state(int UNUSED(x))
 	printf("\n");
 
 	printf(
-		#ifndef __APPLE_CC__
+		#if !defined( __APPLE_CC__) && !defined(__NetBSD__) && !defined(__OpenBSD__)
 		"Now: %lu.%lu\n",
 		#else
 		"Now: %lu.%d\n",
@@ -3113,7 +3117,7 @@ static void print_state(int UNUSED(x))
 
 	while (t) {
 		printf(
-		       #ifndef __APPLE_CC__
+		       #if !defined( __APPLE_CC__) && !defined(__NetBSD__) && !defined(__OpenBSD__)
 		       "Timer: %lu.%lu %p[%s](%p)\n",
 		       #else
 		       "Timer: %lu.%d %p[%s](%p)\n",

@@ -2,7 +2,7 @@
  *  802.11 monitor AP
  *  based on airtun-ng
  *
- *  Copyright (C) 2008-2015 Thomas d'Otreppe <tdotreppe@aircrack-ng.org>
+ *  Copyright (C) 2008-2016 Thomas d'Otreppe <tdotreppe@aircrack-ng.org>
  *  Copyright (C) 2008, 2009 Martin Beck <hirte@aircrack-ng.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -58,6 +58,7 @@
 #include <getopt.h>
 #include <sys/file.h>
 #include <fcntl.h>
+
 #include <ctype.h>
 
 #include "version.h"
@@ -434,7 +435,7 @@ int addESSID(char* essid, int len, int expiration)
 
     if(len <= 0 || len > 255)
         return -1;
-    
+
     pthread_mutex_lock(&rESSIDmutex);
     cur = rESSID;
 
@@ -484,8 +485,13 @@ int capture_packet(unsigned char* packet, int length)
 {
     struct pcap_pkthdr pkh;
     struct timeval tv;
-
     int n;
+#if defined(__sun__)
+	struct flock fl;
+	fl.l_start = 0;
+	fl.l_len = 0;
+	fl.l_whence = SEEK_SET;
+#endif
 
     if( opt.f_cap != NULL && length >= 10)
     {
@@ -498,13 +504,23 @@ int capture_packet(unsigned char* packet, int length)
 
         n = sizeof( pkh );
 
-        flock(fileno(opt.f_cap), LOCK_EX);
+#if defined(__sun__)
+	fl.l_type = F_WRLCK;
+	fcntl(fileno(opt.f_cap), F_SETLKW, &fl);
+#else
+	flock(fileno(opt.f_cap), LOCK_EX);
+#endif
         if( fwrite( &pkh, 1, n, opt.f_cap ) != (size_t) n )
         {
-            perror( "fwrite(packet header) failed" );
-            flock(fileno(opt.f_cap), LOCK_UN);
-            return( 1 );
-        }
+		perror( "fwrite(packet header) failed" );
+#if defined(__sun__)
+		fl.l_type = F_UNLCK;
+		fcntl(fileno(opt.f_cap), F_GETLK, &fl);
+#else
+		flock(fileno(opt.f_cap), LOCK_UN);
+#endif
+		return( 1 );
+	}
 
         fflush( stdout );
 
@@ -512,15 +528,25 @@ int capture_packet(unsigned char* packet, int length)
 
         if( fwrite( packet, 1, n, opt.f_cap ) != (size_t) n )
         {
-            perror( "fwrite(packet data) failed" );
-            flock(fileno(opt.f_cap), LOCK_UN);
-            return( 1 );
+		perror( "fwrite(packet data) failed" );
+#if defined(__sun__)
+		fl.l_type = F_UNLCK;
+		fcntl(fileno(opt.f_cap), F_GETLK, &fl);
+#else
+		flock(fileno(opt.f_cap), LOCK_UN);
+#endif
+		return( 1 );
         }
 
         fflush( stdout );
 
         fflush( opt.f_cap );
-        flock(fileno(opt.f_cap), LOCK_UN);
+#if defined(__sun__)
+	fl.l_type = F_UNLCK;
+	fcntl(fileno(opt.f_cap), F_GETLK, &fl);
+#else
+	flock(fileno(opt.f_cap), LOCK_UN);
+#endif
     }
     return 0;
 }
@@ -1106,23 +1132,35 @@ int getNextESSID(char *essid)
     pESSID_t cur;
 
     pthread_mutex_lock(&rESSIDmutex);
-    cur = rESSID;
 
     if(rESSID == NULL || rESSID->next == NULL) {
         pthread_mutex_unlock(&rESSIDmutex);
         return 0;
     }
-    len = strlen(essid);
-    while (cur->len != len || cur->essid == NULL || strcmp(essid, cur->essid)) {
-        cur = cur->next;
-        if (cur->next == NULL) {
-            pthread_mutex_unlock(&rESSIDmutex);
-            return 0;
-        }
-    }
 
-    memcpy(essid, cur->next->essid, cur->next->len + 1);
-    len = cur->next->len;
+    len = strlen(essid);
+    for (cur = rESSID->next; cur != NULL; cur = cur->next)
+    {
+    	if (*essid == 0) {
+    		break;
+    	}
+    	// Check if current SSID.
+    	if (cur->len == len && cur->essid != NULL && strcmp(essid, cur->essid) == 0) {
+        	// SSID found, get next one
+        	cur = cur->next;
+        	if (cur == NULL) {
+        		cur = rESSID->next;
+        	}
+        	break;
+    	}
+    }
+    len = 0;
+
+    if (cur != NULL) {
+        memcpy(essid, cur->essid, cur->len + 1);
+        len = cur->len;
+
+    }
     pthread_mutex_unlock(&rESSIDmutex);
 
     return len;
@@ -3592,7 +3630,12 @@ void beacon_thread( void *arg )
             usleep( 1000000/RTC_RESOLUTION );
             gettimeofday( &tv2, NULL );
 
-            f = 1000000.0 * (float) ( tv2.tv_sec  - tv.tv_sec  )
+#if defined(__x86_64__) && defined(__CYGWIN__)
+        	f = (0.0f + 1000000)
+#else
+		f = 1000000.0
+#endif
+			 * (float) ( tv2.tv_sec  - tv.tv_sec  )
                         + (float) ( tv2.tv_usec - tv.tv_usec );
 
             ticks[0] += f / ( 1000000/RTC_RESOLUTION );
@@ -3600,7 +3643,12 @@ void beacon_thread( void *arg )
             ticks[2] += f / ( 1000000/RTC_RESOLUTION );
         }
 
-        if( ( (double)ticks[2] / (double)RTC_RESOLUTION )  >= ((double)apc.interval/1000.0)*(double)seq )
+        if( ( (double)ticks[2] / (double)RTC_RESOLUTION )  >= ((double)apc.interval/
+#if defined(__x86_64__) && defined(__CYGWIN__)
+		(0.0f + 1000))*(double)seq )
+#else
+		1000.0)*(double)seq )
+#endif
         {
             /* threshold reach, send one frame */
 //             ticks[2] = 0;
@@ -3611,7 +3659,8 @@ void beacon_thread( void *arg )
 
             /* flush expired ESSID entries */
             flushESSID();
-            if (!getNextESSID(essid)) {
+            essid_len = getNextESSID(essid);
+            if (!essid_len) {
                 strcpy(essid, "default");
                 essid_len = strlen("default");
             }
@@ -3738,14 +3787,25 @@ void caffelatte_thread( void )
         usleep( 1000000/RTC_RESOLUTION );
         gettimeofday( &tv2, NULL );
 
-        f = 1000000.0 * (float) ( tv2.tv_sec  - tv.tv_sec  )
+#if defined(__x86_64__) && defined(__CYGWIN__)
+        f = (0.0f + 1000000)
+#else
+	f = 1000000.0
+#endif
+		 * (float) ( tv2.tv_sec  - tv.tv_sec  )
                     + (float) ( tv2.tv_usec - tv.tv_usec );
 
         ticks[0] += f / ( 1000000/RTC_RESOLUTION );
         ticks[1] += f / ( 1000000/RTC_RESOLUTION );
         ticks[2] += f / ( 1000000/RTC_RESOLUTION );
 
-        if( ( (double)ticks[2] / (double)RTC_RESOLUTION )  >= ((double)1000.0/(double)opt.r_nbpps)*(double)seq )
+        if( ( (double)ticks[2] / (double)RTC_RESOLUTION )  >= ((double)
+#if defined(__x86_64__) && defined(__CYGWIN__)
+		(0.0f + 1000)
+#else
+		1000.0
+#endif
+		/(double)opt.r_nbpps)*(double)seq )
         {
             /* threshold reach, send one frame */
 //            ticks[2] = 0;
@@ -3876,14 +3936,25 @@ void cfrag_thread( void )
         usleep( 1000000/RTC_RESOLUTION );
         gettimeofday( &tv2, NULL );
 
-        f = 1000000.0 * (float) ( tv2.tv_sec  - tv.tv_sec  )
+#if defined(__x86_64__) && defined(__CYGWIN__)
+        f = (0.0f + 1000000)
+#else
+	f = 1000000.0
+#endif
+		* (float) ( tv2.tv_sec  - tv.tv_sec  )
                     + (float) ( tv2.tv_usec - tv.tv_usec );
 
         ticks[0] += f / ( 1000000/RTC_RESOLUTION );
         ticks[1] += f / ( 1000000/RTC_RESOLUTION );
         ticks[2] += f / ( 1000000/RTC_RESOLUTION );
 
-        if( ( (double)ticks[2] / (double)RTC_RESOLUTION )  >= ((double)1000.0/(double)opt.r_nbpps)*(double)seq )
+        if( ( (double)ticks[2] / (double)RTC_RESOLUTION )  >= ((double)
+#if defined(__x86_64__) && defined(__CYGWIN__)
+		(0.0f + 1000)
+#else
+		1000.0
+#endif
+		/(double)opt.r_nbpps)*(double)seq )
         {
             /* threshold reach, send one frame */
 //            ticks[2] = 0;

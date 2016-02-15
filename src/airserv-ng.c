@@ -34,6 +34,10 @@
 #include <stdarg.h>
 #include <signal.h>
 
+#ifdef __NetBSD__
+	#include <sys/select.h>
+#endif
+
 #include "osdep/osdep.h"
 #include "osdep/network.h"
 #include "version.h"
@@ -85,6 +89,7 @@ static void usage(char *p)
 		"       -v <level> : Debug level (1 to 3; default: 1)\n"
 		"\n",
 		version_info);
+	free(version_info);
 	exit(1);
 }
 
