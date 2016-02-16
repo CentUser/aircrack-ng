@@ -4,7 +4,7 @@ Upstream-Contact: Thomas d'Otreppe <tdotreppe@aircrack-ng.org>
 Source: http://download.aircrack-ng.org/aircrack-ng-1.2-beta3.tar.gz
 
 Files: *
-Copyright: 2006-2015, Thomas d'Otreppe
+Copyright: 2006-2016, Thomas d'Otreppe
 License: GPL-2+
 
 Files: lib/csharp/MonoExample/NDesk-dbus/*
@@ -64,6 +64,24 @@ Comment: This file is extracted from the work published by KoreK
 Files: src/besside-ng-crawler.c
 Copyright: 2010, Pedro Larbig <pedro.larbig@carhs.de>
 License: GPL-2+
+
+Files: src/MD5_std.h src/aligned.h src/arch.h src/jcommon.h src/johnswap.h
+       src/md5.h src/memdbg.h src/memory.c src/memory.h src/misc.h
+       src/pseudo_intrinsics.h src/simd-intrinsics-load-flags.h
+       src/simd-intrinsics.c src/simd-intrinsics.h
+       src/sse-intrinsics-load-flags.h src/sse-intrinsics.c
+       src/sse-intrinsics.h src/wpapsk.c src/wpapsk.h
+Copyright: 1996-2013 by Solar Designer
+License: GPL-2+ with OpenSSL and unRAR exception
+
+Files: src/cpuid.c
+Copyright: Len White <lwhite@nrw.ca>
+           2006-2014 Thomas d'Otreppe
+License: GPL-2+
+
+Files: src/linecount.cpp
+Copyright: 2015 Len White <lwhite@nrw.ca>
+License: GPL-2+ with OpenSSL exception
 
 Files: manpages/*
 Copyright: 2006-2014 Thomas d'Otreppe
@@ -130,6 +148,7 @@ License: GPL-2+ with OpenSSL exception
 Files: src/aircrack-ng.c src/aircrack-ng.h src/airdecap-ng.c src/ivstools.c
        src/aireplay-ng.c src/packetforge-ng.c src/airodump-ng.c
        src/airdecloak-ng.c src/airdecloak-ng.h src/version.h src/pcap.h
+       src/linecount.h
 Copyright: 2001-2005, Christophe Devine
            2006-2010, Thomas d'Otreppe
 License: GPL-2+ with OpenSSL exception
@@ -263,6 +282,31 @@ License: GPL-2+ with OpenSSL exception
  License along with this package; if not, write to the Free
  Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  Boston, MA  02110-1301 USA
+ .
+ On Debian systems, the full text of the GNU General Public
+ License version 2 can be found in the file
+ `/usr/share/common-licenses/GPL-2'.
+
+License: GPL-2+ with OpenSSL and unRAR exception
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 2 of the License, or
+ (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ As a special exception to the GNU General Public License terms,
+ permission is hereby granted to link the code of this program, with or
+ without modification, with any version of the OpenSSL library and/or any
+ version of unRAR, and to distribute such linked combinations.  You must
+ obey the GNU GPL in all respects for all of the code used other than
+ OpenSSL and unRAR.  If you modify this program, you may extend this
+ exception to your version of the program, but you are not obligated to
+ do so.  (In other words, you may release your derived work under pure
+ GNU GPL version 2 or later as published by the FSF.)
  .
  On Debian systems, the full text of the GNU General Public
  License version 2 can be found in the file
