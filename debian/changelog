@@ -1,6 +1,7 @@
 aircrack-ng (1:1.2-0~rc4-0kali1) kali-dev; urgency=medium
 
   * Import new upstream release
+  * Add a debian/source/options file
 
  -- Sophie Brun <sophie@freexian.com>  Mon, 15 Feb 2016 16:03:54 +0100
 
