@@ -2,12 +2,17 @@
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 export MAKEFLAGS = gcrypt=true sqlite=true experimental=true pcre=true
+include /usr/share/dpkg/architecture.mk
 
 %:
 	dh $@ --with=python2
 
 override_dh_auto_configure:
-	echo "PTHREAD=Y" >common.cfg
+ifeq ($(DEB_HOST_ARCH),amd64)
+	(echo "SSEFLAG=Y"; echo "NEWSSE=true"; echo "SIMDCORE=true"; echo "PTHREAD=Y") >common.cfg
+else
+	(echo "NEWSSE=false"; echo "SIMDCORE=false"; echo "PTHREAD=Y") >common.cfg
+endif
 	dh_auto_configure
 
 override_dh_auto_install:

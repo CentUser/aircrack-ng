@@ -1,3 +1,9 @@
+aircrack-ng (1:1.2-0~rc4-0kali3) kali-dev; urgency=medium
+
+  * Adjust debian/rules for specific architecture requirements
+
+ -- Sophie Brun <sophie@freexian.com>  Fri, 19 Feb 2016 12:07:24 +0100
+
 aircrack-ng (1:1.2-0~rc4-0kali2) kali-dev; urgency=medium
 
   * Fix bug 3080: create a common.cfg file before build to avoid
