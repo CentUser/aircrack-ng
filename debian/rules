@@ -6,6 +6,10 @@ export MAKEFLAGS = gcrypt=true sqlite=true experimental=true pcre=true
 %:
 	dh $@ --with=python2
 
+override_dh_auto_configure:
+	echo "PTHREAD=Y" >common.cfg
+	dh_auto_configure
+
 override_dh_auto_install:
 	$(MAKE) install DESTDIR=$(CURDIR)/debian/aircrack-ng prefix=/usr
 	rm -f $(CURDIR)/debian/aircrack-ng/usr/share/man/man8/airodump-ng-oui-update*
