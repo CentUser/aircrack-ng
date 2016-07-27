@@ -1,3 +1,10 @@
+aircrack-ng (1:1.2-0~rc4-0kali5) kali-dev; urgency=medium
+
+  * Update helper-script for airodump-ng-oui-update: command update-oui has
+    been renamed as update-ieee-data (closes: 0003449) in package ieee-data
+
+ -- Sophie Brun <sophie@freexian.com>  Wed, 27 Jul 2016 14:31:27 +0200
+
 aircrack-ng (1:1.2-0~rc4-0kali3) kali-dev; urgency=medium
 
   * Adjust debian/rules for specific architecture requirements
